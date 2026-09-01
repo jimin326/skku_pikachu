@@ -1,790 +1,473 @@
-'use strict';
+﻿'use strict';
+/* Jayce_v4.py 의 JS 1:1 이식 — 시뮬레이터 스파링 상대용.
+ * 로직/상수/점수 체계를 그대로 옮겼다. Python // 는 양수 전용이므로 Math.floor. */
 
-/*
- * AdaptiveCounter_v1
- *
- * Jayce 계열의 전수 행동 시뮬레이션을 복제하지 않는다. 대신 다음 세 축을 쓴다.
- *
- *  1. 선제 블로킹: 상대가 점프 공격을 준비하면 공이 넘어온 뒤가 아니라
- *     타격 전에 점프한다. 지상 출발만 가정한 "통과탄" 판정을 무력화한다.
- *  2. 문맥 밴딧 공격: 느린/빠른 × 아치/플랫/찍기 6개 공격군의 결과를
- *     세트 안에서 학습한다. 성공한 공격은 더 자주, 리턴된 공격은 덜 쓴다.
- *  3. 시간창 제어: 명령이 3프레임 뒤 적용된다는 사실을 반영해 점프와 접촉
- *     가능 시간을 계산한다. 매 프레임 최적 행동을 찾는 대신 접촉 창을 잡는다.
- *
- * 규약: decide(snapshot) -> { x:-1|0|1, y:-1|0|1, hit:0|1 }
- */
+var GROUND_WIDTH = 432;
+var NET_X = 216;
+var PLAYER_GROUND_Y = 244;
+var BALL_GROUND_Y = 252;
+var PLAYER_HALF = 32;
+var NET_HALF_W = 25;
+var NET_TOP_Y = 176;
+var NET_TOP_BOTTOM_Y = 192;
+var WALK_SPEED = 6;
+var DIVE_SPEED = 8;
+var LATENCY_FRAMES = 1;
 
-var GW = 432;
-var NET = 216;
-var HALF = 32;
-var PLAYER_GY = 244;
-var BALL_GY = 252;
-var NET_HW = 25;
-var NET_TOP = 176;
-var NET_BOTTOM = 192;
-var WALK = 6;
-var DIVE = 8;
+var CFG = { AIR_MIN: 3, AIR_MAX: 16, Y_LO: 120, Y_HI: 218, TOL: 26, BAND: 0 };
 
-var SHOTS = [
-  { name: 'slowArc',  fast: 0, y: -1, prior:  5 },
-  { name: 'slowFlat', fast: 0, y:  0, prior: -2 },
-  { name: 'slowDrop', fast: 0, y:  1, prior:  7 },
-  { name: 'fastArc',  fast: 1, y: -1, prior:  2 },
-  { name: 'fastFlat', fast: 1, y:  0, prior: 12 },
-  { name: 'fastDrop', fast: 1, y:  1, prior: 10 }
-];
+var g_prev = null;
+var g_touches = 0;
+var g_prev_ball_on_left = null;
+var g_prev_tick = null;
+var g_last_action = { x: 0, y: 0, hit: 0 };
+var g_air_policy = null;
+var g_group = 3;
 
-var M = {
-  lastAction: { x: 0, y: 0, hit: 0 },
-  prev: null,
-  prevTick: null,
-  prevRally: -1,
-  prevScoreSelf: 0,
-  prevScoreOpp: 0,
-  touchCount: 0,
-  lastHalf: null,
-  airAim: null,
-  airAimUntil: 0,
-  selectedShot: null,
-  liveShot: null,
-  shotStats: SHOTS.map(function (s) {
-    return { n: 0, value: s.prior, returns: 0, kills: 0 };
-  }),
-  oppStats: SHOTS.map(function () { return 1; }),
-  oppLandingMean: null,
-  oppLandingM2: 0,
-  oppLandingCount: 0,
-  compactAttackPoseCount: 0,
-  firstThreatWasSlow: null,
-  incomingPowerActive: false,
-  counterLocked: false,
-  rallySerial: 0
-};
-
-function clamp(v, lo, hi) {
-  return v < lo ? lo : (v > hi ? hi : v);
-}
-
-function sign(v) {
-  return v > 0 ? 1 : (v < 0 ? -1 : 0);
-}
-
-function neutral() {
-  return { x: 0, y: 0, hit: 0 };
-}
+function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
+function idiv(a, b) { return Math.floor(a / b); }
 
 function stepBall(b) {
-  if (b.x + b.vx < 0 || b.x + b.vx > GW) b.vx = -b.vx;
-  if (b.y + b.vy < 0) b.vy = 1;
-  if (Math.abs(b.x - NET) < NET_HW && b.y > NET_TOP) {
-    if (b.y <= NET_BOTTOM) {
-      if (b.vy > 0) b.vy = -b.vy;
-    } else {
-      b.vx = b.x < NET ? -Math.abs(b.vx) : Math.abs(b.vx);
-    }
+  var fx = b.x + b.xV;
+  if (fx < 0 || fx > GROUND_WIDTH) b.xV = -b.xV;
+  if (b.y + b.yV < 0) b.yV = 1;
+  if (Math.abs(b.x - NET_X) < NET_HALF_W && b.y > NET_TOP_Y) {
+    if (b.y <= NET_TOP_BOTTOM_Y) { if (b.yV > 0) b.yV = -b.yV; }
+    else if (b.x < NET_X) b.xV = -Math.abs(b.xV);
+    else b.xV = Math.abs(b.xV);
   }
-  if (b.y + b.vy > BALL_GY) return true;
-  b.y += b.vy;
-  b.x += b.vx;
-  b.vy += 1;
+  var fy = b.y + b.yV;
+  if (fy > BALL_GROUND_Y) return true;
+  b.y = fy; b.x += b.xV; b.yV += 1;
   return false;
 }
 
-function ballPath(ball, limit) {
-  var b = { x: ball.x, y: ball.y, vx: ball.xVelocity, vy: ball.yVelocity };
-  var out = [];
-  for (var f = 1; f <= limit; f++) {
-    var ground = stepBall(b);
-    out.push({ x: b.x, y: ground ? BALL_GY : b.y, vx: b.vx, vy: b.vy,
-      f: f, ground: ground });
-    if (ground) break;
-  }
-  return out;
+function cloneBall(ball) {
+  return { x: ball.x, y: ball.y, xV: ball.xVelocity, yV: ball.yVelocity };
 }
-
-function shotPath(contact, fast, yDir, limit) {
+function ballAfter(ball, n) {
+  var b = cloneBall(ball);
+  for (var i = 0; i < n; i++) if (stepBall(b)) break;
+  return b;
+}
+function framesToLanding(ball) {
+  var b = cloneBall(ball);
+  for (var i = 1; i <= 200; i++) if (stepBall(b)) return i;
+  return 200;
+}
+function powerHitLanding(b0, xAbs, yd) {
   var b = {
-    x: contact.x,
-    y: contact.y,
-    vx: (contact.x < NET ? 1 : -1) * (fast ? 20 : 10),
-    vy: Math.max(15, Math.abs(contact.vy)) * yDir * 2
+    x: b0.x, y: b0.y,
+    xV: (b0.x < NET_X ? 1 : -1) * (xAbs + 1) * 10,
+    yV: Math.max(15, Math.abs(b0.yV)) * yd * 2
   };
-  var out = [];
-  var touchedNet = false;
-  for (var f = 1; f <= limit; f++) {
-    var beforeVx = b.vx;
-    var wasNearNet = Math.abs(b.x - NET) < NET_HW && b.y > NET_TOP;
-    var ground = stepBall(b);
-    if (wasNearNet && (b.vx !== beforeVx || b.y > NET_TOP)) touchedNet = true;
-    out.push({ x: b.x, y: ground ? BALL_GY : b.y, vx: b.vx, vy: b.vy,
-      f: f, ground: ground });
-    if (ground) break;
-  }
-  return { path: out, touchedNet: touchedNet };
+  for (var i = 1; i <= 200; i++) if (stepBall(b)) return { x: b.x, frames: i };
+  return { x: b.x, frames: 200 };
 }
 
-function landing(path) {
-  if (!path.length) return { x: NET, f: 200 };
-  var p = path[path.length - 1];
-  return { x: p.x, f: p.f };
+function oppCanReach(b, oppX, oppMinX, oppMaxX, fSinceHit) {
+  if (b.x < oppMinX - PLAYER_HALF || b.x > oppMaxX + PLAYER_HALF) return false;
+  if (b.y < 76) return false;
+  if (b.y < 212 && fSinceHit < 5) return false;
+  return Math.abs(b.x - oppX) <= WALK_SPEED * fSinceHit + 40;
 }
 
-function jumpY(age) {
-  if (age <= 0) return PLAYER_GY;
-  var y = PLAYER_GY - 16 * age + age * (age - 1) / 2;
-  return y > PLAYER_GY ? PLAYER_GY : y;
-}
+function microSim(me0, ball0, firstAction, action, minX, maxX, maxFrames, oppInfo) {
+  var mx = me0.x, my = me0.y, vy = me0.vy, state = me0.state;
+  var delay = me0.delay, frameNo = me0.frameNo;
+  var b = { x: ball0.x, y: ball0.y, xV: ball0.xVelocity, yV: ball0.yVelocity };
+  var collFlag = me0.collFlag === true;
+  var touches = 0, powerTouches = 0, oppWindow = 0, fSinceHit = -1;
 
-function estimateVy(s) {
-  if (!M.prev || M.prevTick === null || s.self.state === 0) return 0;
-  var d = Math.max(1, s.tick - M.prevTick);
-  var dy = s.self.y - M.prev.selfY;
-  return dy / d + (d + 1) / 2;
-}
-
-function moveInput(target, predictedX, group) {
-  var step = WALK * group;
-  var dx = target - predictedX;
-  var best = 0;
-  var bestErr = Math.abs(dx);
-  if (Math.abs(dx - step) + 0.01 < bestErr) {
-    best = 1;
-    bestErr = Math.abs(dx - step);
-  }
-  if (Math.abs(dx + step) + 0.01 < bestErr) best = -1;
-  return Math.abs(dx) < 7 ? 0 : best;
-}
-
-function onOurCourt(x, isLeft, pad) {
-  return isLeft ? x < NET - pad : x > NET + pad;
-}
-
-function onOppCourt(x, isLeft, pad) {
-  return isLeft ? x > NET + pad : x < NET - pad;
-}
-
-function classifyPower(ball) {
-  var fast = Math.abs(ball.xVelocity) >= 15 ? 1 : 0;
-  var y;
-  if (ball.yVelocity > 8) y = 1;
-  else if (ball.yVelocity < -8) y = -1;
-  else y = 0;
-  for (var i = 0; i < SHOTS.length; i++) {
-    if (SHOTS[i].fast === fast && SHOTS[i].y === y) return i;
-  }
-  return fast ? 4 : 1;
-}
-
-function updateValue(index, reward) {
-  if (index === null || index < 0 || index >= M.shotStats.length) return;
-  var st = M.shotStats[index];
-  st.n += 1;
-  var rate = st.n < 3 ? 0.42 : 0.24;
-  st.value = st.value * (1 - rate) + reward * 100 * rate;
-  if (reward > 0.6) st.kills += 1;
-  if (reward < 0) st.returns += 1;
-}
-
-function observe(s, isLeft) {
-  var newRally = M.prevRally >= 0 && s.meta.rallyFrameCount < M.prevRally;
-  var selfScored = s.meta.score.self > M.prevScoreSelf;
-  var oppScored = s.meta.score.opp > M.prevScoreOpp;
-
-  if (newRally || selfScored || oppScored) {
-    if (M.liveShot) {
-      if (selfScored) updateValue(M.liveShot.index, M.liveShot.returned ? 0.35 : 1.0);
-      else if (oppScored) updateValue(M.liveShot.index, M.liveShot.returned ? -0.18 : -0.7);
-      M.liveShot = null;
+  for (var f = 1; f <= maxFrames; f++) {
+    var a = (f === 1) ? firstAction : action;
+    if (stepBall(b)) {
+      return { landed: true, landX: b.x, frames: f, touches: touches,
+        powerTouches: powerTouches, oppWindow: oppWindow };
     }
-    M.touchCount = 0;
-    M.lastHalf = null;
-    M.airAim = null;
-    M.selectedShot = null;
-    M.rallySerial += 1;
-  }
-
-  var half = s.ball.x < NET ? -1 : 1;
-  if (M.lastHalf !== null && half !== M.lastHalf) M.touchCount = 0;
-
-  if (M.prev) {
-    var nearMe = Math.abs(s.ball.x - s.self.x) < 75 &&
-      Math.abs(s.ball.y - s.self.y) < 85;
-    var velocityChanged = Math.abs(s.ball.xVelocity - M.prev.ballVx) > 3 ||
-      Math.abs(s.ball.yVelocity - (M.prev.ballVy + (s.tick - M.prevTick))) > 5;
-    if (nearMe && velocityChanged && onOurCourt(s.ball.x, isLeft, -20)) M.touchCount += 1;
-  }
-
-  var towardUs = isLeft ? s.ball.xVelocity < 0 : s.ball.xVelocity > 0;
-  var nearOpp = Math.abs(s.ball.x - s.opp.x) < 80 &&
-    Math.abs(s.ball.y - s.opp.y) < 90;
-  var incomingPower = s.ball.isPowerHit && towardUs;
-  if (incomingPower && nearOpp && !M.incomingPowerActive) {
-    var incomingLand = s.ball.expectedLandingPointX;
-    // 벽/천장 반사 중 잠시 우리 방향을 향해도 최종 낙하가 상대 코트면
-    // 수비 학습 표본이 아니다. 실제로 우리 코트에 떨어질 공격만 센다.
-    if (onOurCourt(incomingLand, isLeft, 0)) {
-      var oppType = classifyPower(s.ball);
-      M.oppStats[oppType] += 1;
-      if (M.oppLandingCount === 0) {
-        M.firstThreatWasSlow = Math.abs(s.ball.xVelocity) === 10;
+    if (fSinceHit >= 0) {
+      fSinceHit += 1;
+      if (oppInfo && oppCanReach(b, oppInfo.x, oppInfo.minX, oppInfo.maxX, fSinceHit)) oppWindow += 1;
+    }
+    if (state < 3) mx = clamp(mx + a.x * WALK_SPEED, minX, maxX);
+    var futureY = my + vy;
+    my = futureY;
+    if (futureY < PLAYER_GROUND_Y) vy += 1;
+    else { my = PLAYER_GROUND_Y; vy = 0; state = 0; }
+    if (a.hit === 1 && state === 1) { delay = 5; frameNo = 0; state = 2; }
+    if (state === 2) {
+      if (delay < 1) { frameNo += 1; if (frameNo > 4) { frameNo = 0; state = 1; } }
+      else delay -= 1;
+    }
+    var overlap = Math.abs(b.x - mx) <= PLAYER_HALF && Math.abs(b.y - my) <= PLAYER_HALF;
+    if (overlap) {
+      if (!collFlag) {
+        if (b.x < mx) b.xV = -idiv(Math.abs(b.x - mx), 3);
+        else if (b.x > mx) b.xV = idiv(Math.abs(b.x - mx), 3);
+        var absY = Math.abs(b.yV);
+        b.yV = absY < 15 ? -15 : -absY;
+        if (state === 2) {
+          b.xV = (b.x < NET_X ? 1 : -1) * (Math.abs(a.x) + 1) * 10;
+          b.yV = Math.abs(b.yV) * a.y * 2;
+          powerTouches += 1; oppWindow = 0; fSinceHit = 0;
+        }
+        touches += 1; collFlag = true;
       }
-      if (s.opp.state === 2 && s.opp.y <= 140) M.compactAttackPoseCount += 1;
-      M.oppLandingCount += 1;
-      if (M.oppLandingMean === null) {
-        M.oppLandingMean = incomingLand;
-      } else {
-        var delta = incomingLand - M.oppLandingMean;
-        M.oppLandingMean += delta / M.oppLandingCount;
-        M.oppLandingM2 += delta * (incomingLand - M.oppLandingMean);
+    } else collFlag = false;
+  }
+  return { landed: false, landX: b.x, frames: maxFrames, touches: touches,
+    powerTouches: powerTouches, oppWindow: oppWindow };
+}
+
+function microSimSeq(me0, ball0, stages, minX, maxX, maxFrames, oppInfo) {
+  var mx = me0.x, my = me0.y, vy = me0.vy, state = me0.state;
+  var delay = me0.delay, frameNo = me0.frameNo;
+  var b = { x: ball0.x, y: ball0.y, xV: ball0.xVelocity, yV: ball0.yVelocity };
+  var collFlag = me0.collFlag === true;
+  var touches = 0, powerTouches = 0, oppWindow = 0, fSinceHit = -1, lastHitFrame = 0, si = 0;
+
+  for (var f = 1; f <= maxFrames; f++) {
+    while (si < stages.length - 1 && f > stages[si].until) si += 1;
+    var a = stages[si].act;
+    if (stepBall(b)) {
+      return { landed: true, landX: b.x, frames: f, touches: touches,
+        powerTouches: powerTouches, lastHitFrame: lastHitFrame, oppWindow: oppWindow };
+    }
+    if (fSinceHit >= 0) {
+      fSinceHit += 1;
+      if (oppInfo && oppCanReach(b, oppInfo.x, oppInfo.minX, oppInfo.maxX, fSinceHit)) oppWindow += 1;
+    }
+    if (state < 3) mx = clamp(mx + a.x * WALK_SPEED, minX, maxX);
+    if (state < 3 && a.y === -1 && my === PLAYER_GROUND_Y) { vy = -16; state = 1; }
+    var futureY = my + vy;
+    my = futureY;
+    if (futureY < PLAYER_GROUND_Y) vy += 1;
+    else { my = PLAYER_GROUND_Y; vy = 0; if (state === 1 || state === 2) state = 0; }
+    if (a.hit === 1 && state === 1) { delay = 5; frameNo = 0; state = 2; }
+    if (state === 2) {
+      if (delay < 1) { frameNo += 1; if (frameNo > 4) { frameNo = 0; state = 1; } }
+      else delay -= 1;
+    }
+    var overlap = Math.abs(b.x - mx) <= PLAYER_HALF && Math.abs(b.y - my) <= PLAYER_HALF;
+    if (overlap) {
+      if (!collFlag) {
+        if (b.x < mx) b.xV = -idiv(Math.abs(b.x - mx), 3);
+        else if (b.x > mx) b.xV = idiv(Math.abs(b.x - mx), 3);
+        var aY = Math.abs(b.yV);
+        b.yV = aY < 15 ? -15 : -aY;
+        if (state === 2) {
+          b.xV = (b.x < NET_X ? 1 : -1) * (Math.abs(a.x) + 1) * 10;
+          b.yV = Math.abs(b.yV) * a.y * 2;
+          powerTouches += 1; lastHitFrame = f; oppWindow = 0; fSinceHit = 0;
+        }
+        touches += 1; collFlag = true;
       }
-    }
+    } else collFlag = false;
   }
-  M.incomingPowerActive = incomingPower;
-
-  if (M.liveShot && !M.liveShot.returned) {
-    var returning = towardUs && onOppCourt(s.ball.x, isLeft, -12) && nearOpp;
-    if (returning) {
-      M.liveShot.returned = true;
-      updateValue(M.liveShot.index, -0.22);
-    }
-  }
-
-  M.prevRally = s.meta.rallyFrameCount;
-  M.prevScoreSelf = s.meta.score.self;
-  M.prevScoreOpp = s.meta.score.opp;
-  M.lastHalf = half;
+  return { landed: false, landX: b.x, frames: maxFrames, touches: touches,
+    powerTouches: powerTouches, lastHitFrame: lastHitFrame, oppWindow: oppWindow };
 }
 
-function opponentReachScore(path, opp, isLeft) {
-  var bestClearance = 999;
-  var usable = 0;
-  var alreadyAirborne = opp.state === 1 || opp.state === 2;
-  for (var i = 0; i < path.length; i++) {
-    var p = path[i];
-    if (!onOppCourt(p.x, isLeft, -HALF)) continue;
-    var verticalOK;
-    if (alreadyAirborne) {
-      verticalOK = p.y >= 70 && p.y <= 238;
-    } else {
-      verticalOK = p.y >= 205 || (p.f >= 5 && p.y >= 76);
-    }
-    if (!verticalOK) continue;
-    usable += 1;
-    var reach = WALK * p.f + HALF + (p.f > 8 ? 10 : 0);
-    var clearance = Math.abs(p.x - opp.x) - reach;
-    if (clearance < bestClearance) bestClearance = clearance;
-  }
-  if (usable === 0) return 210;
-  return bestClearance;
-}
-
-function chooseShot(contact, s, isLeft) {
+function findKillJump(s, minX, maxX) {
+  var isRight = s.side === 'RIGHT';
+  var oppMinX = isRight ? 0 : NET_X;
+  var oppMaxX = isRight ? NET_X : GROUND_WIDTH;
+  var budget = 4 - g_touches;
+  if (budget < 1) return null;
+  var first = { x: g_last_action.x, y: g_last_action.y, hit: g_last_action.hit };
+  var me0 = {
+    x: s.self.x, y: s.self.y, vy: 0, state: 0, delay: 0, frameNo: 0,
+    collFlag: (Math.abs(s.ball.x - s.self.x) <= PLAYER_HALF &&
+               Math.abs(s.ball.y - s.self.y) <= PLAYER_HALF)
+  };
+  var oppInfo = {
+    x: s.opp.x,
+    minX: isRight ? PLAYER_HALF : NET_X + PLAYER_HALF,
+    maxX: isRight ? NET_X - PLAYER_HALF : GROUND_WIDTH - PLAYER_HALF
+  };
   var best = null;
-  var totalTrials = 1;
-  for (var z = 0; z < M.shotStats.length; z++) totalTrials += M.shotStats[z].n;
-
-  for (var i = 0; i < SHOTS.length; i++) {
-    var type = SHOTS[i];
-    var sim = shotPath(contact, type.fast, type.y, 120);
-    var land = landing(sim.path);
-    if (!onOppCourt(land.x, isLeft, 3)) continue;
-
-    var crosses = false;
-    var minNetY = 999;
-    for (var k = 0; k < sim.path.length; k++) {
-      var p = sim.path[k];
-      if (Math.abs(p.x - NET) < NET_HW + 20) minNetY = Math.min(minNetY, p.y);
-      if (onOppCourt(p.x, isLeft, 0)) crosses = true;
-    }
-    if (!crosses || minNetY > NET_TOP + 3) continue;
-
-    var clearance = opponentReachScore(sim.path, s.opp, isLeft);
-    var st = M.shotStats[i];
-    var explore = 17 * Math.sqrt(Math.log(totalTrials + 2) / (st.n + 1));
-    var geometry = clearance * 1.9 + Math.abs(land.x - s.opp.x) * 0.42 - land.f * 1.15;
-    if (clearance > 18) geometry += 95;
-    if (type.y === 1 && land.f <= 13) geometry += 42;
-    if (type.y === 0 && type.fast) geometry += 18;
-    if (sim.touchedNet) geometry -= 100;
-    var score = geometry + st.value * 0.72 + explore;
-
-    // 완전 결정적으로 같은 공격만 반복하지 않도록 랠리 번호로 동률을 깬다.
-    score += ((M.rallySerial * 7 + i * 11) % 9) * 0.17;
-    if (!best || score > best.score) {
-      best = { index: i, fast: type.fast, y: type.y, score: score,
-        landX: land.x, frames: land.f };
+  var jxs = [0, 1, -1], cxs = [0, 1, -1], yds = [1, 0, -1];
+  for (var i = 0; i < 3; i++) {
+    var jumpAct = { x: jxs[i], y: -1, hit: 0 };
+    for (var j = 0; j < 3; j++) {
+      for (var k = 0; k < 3; k++) {
+        var smash = { x: cxs[j], y: yds[k], hit: 1 };
+        var r = microSimSeq(me0, s.ball, [
+          { until: 1, act: first },
+          { until: 4, act: jumpAct },
+          { until: 999, act: smash }
+        ], minX, maxX, 44, oppInfo);
+        if (!r.landed || r.powerTouches < 1) continue;
+        if (r.touches > budget) continue;
+        if (r.landX <= oppMinX + 4 || r.landX >= oppMaxX - 4) continue;
+        var drop = r.frames - r.lastHitFrame;
+        var distFromOpp = Math.abs(r.landX - s.opp.x);
+        var unreachable = distFromOpp > WALK_SPEED * drop + 44;
+        var throughBall = r.oppWindow === 0;
+        if (drop > 14 && !unreachable && !throughBall) continue;
+        var score = 300 - drop * 6 + distFromOpp;
+        if (throughBall) score += 250;
+        else if (unreachable) score += 120;
+        if (!best || score > best.score) best = { jx: jxs[i], smash: smash, score: score };
+      }
     }
   }
-
-  if (!best) return { index: 0, fast: 0, y: -1, score: -999 };
   return best;
 }
 
-function predictAirContact(s, candidateX, group, maxFrames) {
-  var b = { x: s.ball.x, y: s.ball.y,
-    vx: s.ball.xVelocity, vy: s.ball.yVelocity };
-  var px = s.self.x;
-  var py = s.self.y;
-  var pvy = estimateVy(s);
-  var minX = s.side === 'LEFT' ? HALF : NET + HALF;
-  var maxX = s.side === 'LEFT' ? NET - HALF : GW - HALF;
+function scoreAirAction(s, me0, first, act, minX, maxX) {
+  var isRight = s.side === 'RIGHT';
+  var oppMinX = isRight ? 0 : NET_X;
+  var oppMaxX = isRight ? NET_X : GROUND_WIDTH;
+  var touchBudget = 4 - g_touches;
+  var oppInfo = {
+    x: s.opp.x,
+    minX: oppMinX === 0 ? PLAYER_HALF : NET_X + PLAYER_HALF,
+    maxX: oppMaxX === NET_X ? NET_X - PLAYER_HALF : GROUND_WIDTH - PLAYER_HALF
+  };
+  var r = microSim(me0, s.ball, first, act, minX, maxX, 34, oppInfo);
+  if (!r.landed) return null;
+  if (r.touches > touchBudget) return null;
+  var onOpp = r.landX > oppMinX + 4 && r.landX < oppMaxX - 4;
+  if (onOpp && r.touches > 0) {
+    var distFromOpp = Math.abs(r.landX - s.opp.x);
+    var score = distFromOpp - r.frames * 2;
+    if (r.powerTouches > 0 && r.oppWindow === 0) score += 250;
+    else if (r.powerTouches > 0 && r.oppWindow <= 2) score += 120;
+    else if (distFromOpp > WALK_SPEED * r.frames + 44) score += 120;
+    if (r.powerTouches >= 2) score += 60;
+    if (act.hit === 1) score += 10;
+    if (r.frames > 36 && distFromOpp < 110 &&
+        !(r.powerTouches > 0 && r.oppWindow <= 2)) score -= 120;
+    return score;
+  }
+  if (!onOpp && r.touches === 0) return null;
+  var budget = 4 - g_touches;
+  if (act.hit === 0 && r.touches > 0 && budget - r.touches >= 1) return -80;
+  return -500 + (act.hit === 0 ? 50 : 0);
+}
 
-  for (var f = 1; f <= maxFrames; f++) {
-    if (stepBall(b)) return null;
-    var xi = f <= group ? M.lastAction.x : candidateX;
-    px = clamp(px + xi * WALK, minX, maxX);
-    py += pvy;
-    if (py < PLAYER_GY) pvy += 1;
-    else return null;
-    if (Math.abs(b.x - px) <= HALF && Math.abs(b.y - py) <= HALF) {
-      return { x: b.x, y: b.y, vy: b.vy, f: f, playerX: px };
+function chooseAirPolicy(s, me0, minX, maxX) {
+  var first = { x: g_last_action.x, y: g_last_action.y, hit: g_last_action.hit };
+  var hitOnly = me0.state === 2;
+  var best = null;
+  var hits = hitOnly ? [1] : [1, 0];
+  for (var h = 0; h < hits.length; h++) {
+    var hit = hits[h];
+    var yds = hit === 1 ? [1, 0, -1] : [0];
+    var xds = [0, 1, -1];
+    for (var xi = 0; xi < 3; xi++) {
+      for (var yi = 0; yi < yds.length; yi++) {
+        var act = { x: xds[xi], y: yds[yi], hit: hit };
+        var score = scoreAirAction(s, me0, first, act, minX, maxX);
+        if (score === null) continue;
+        if (!best || score > best.score) best = { action: act, score: score };
+      }
     }
+  }
+  return best;
+}
+
+function defenseTarget(s, minX, maxX, fallback) {
+  var isRight = s.side === 'RIGHT';
+  var contactBall = ballAfter(s.ball, 2);
+  var lands = [];
+  for (var xa = 0; xa <= 1; xa++) {
+    var yds = [1, 0, -1];
+    for (var i = 0; i < 3; i++) {
+      var land = powerHitLanding(contactBall, xa, yds[i]);
+      var ours = isRight ? land.x >= NET_X : land.x <= NET_X;
+      if (ours) lands.push(land);
+    }
+  }
+  var plainFrames = framesToLanding(s.ball);
+  var plainX = s.ball.expectedLandingPointX;
+  var plainOurs = isRight ? plainX >= NET_X : plainX <= NET_X;
+  if (plainOurs) lands.push({ x: plainX, frames: plainFrames });
+  if (!lands.length) return fallback;
+
+  var bestX = fallback, bestWorst = Infinity;
+  for (var x = minX; x <= maxX; x += 4) {
+    var worst = -Infinity;
+    for (var k = 0; k < lands.length; k++) {
+      var fr = lands[k].frames;
+      var deficit = Math.abs(x - lands[k].x) - (WALK_SPEED * fr + 38);
+      if (deficit > 0 && fr <= 10) deficit *= 1.6;
+      else if (deficit > 0 && fr <= 16) deficit *= 1.2;
+      if (deficit > worst) worst = deficit;
+    }
+    if (worst < bestWorst) { bestWorst = worst; bestX = x; }
+  }
+  return bestX;
+}
+
+function jumpYAt(k) {
+  if (k <= 0) return PLAYER_GROUND_Y;
+  var y = PLAYER_GROUND_Y - 16 * k + idiv(k * (k - 1), 2);
+  return y > PLAYER_GROUND_Y ? PLAYER_GROUND_Y : y;
+}
+
+function estimateMyVy(s) {
+  if (g_prev === null || s.self.state > 2) return -16;
+  var d = Math.max(1, s.tick - g_prev_tick);
+  var dy = s.self.y - g_prev.selfY;
+  return dy / d + (d + 1) / 2;
+}
+
+function findIntercept(s, myPredX, minX, maxX) {
+  var b = cloneBall(s.ball);
+  for (var k = 1; k <= 44; k++) {
+    if (stepBall(b)) break;
+    if (b.yV < 0) continue;
+    if (b.y < CFG.Y_LO || b.y > CFG.Y_HI) continue;
+    if (b.x < minX - 20 || b.x > maxX + 20) continue;
+    if (Math.abs(b.xV) > 14) continue;
+    var airAge = k - LATENCY_FRAMES;
+    var walkable = WALK_SPEED * (k - 1) + 8;
+    if (Math.abs(b.x - myPredX) > walkable) continue;
+    if (airAge >= CFG.AIR_MIN && airAge <= CFG.AIR_MAX &&
+        Math.abs(jumpYAt(airAge) - b.y) <= CFG.TOL) {
+      return { jump: true, targetX: b.x };
+    }
+    if (airAge > CFG.AIR_MAX) return { jump: false, targetX: b.x };
   }
   return null;
 }
 
-function groundAttackPlan(s, path, minX, maxX, predictedX, group) {
-  var best = null;
-  var delays = [group, group * 2, group * 3, group * 4, group * 5,
-    group * 6, group * 7, group * 8];
-
-  for (var i = 0; i < path.length; i++) {
-    var p = path[i];
-    if (p.ground) break;
-    if (p.x < minX - 20 || p.x > maxX + 20) continue;
-    if (p.f <= group) continue;
-
-    for (var j = 0; j < delays.length; j++) {
-      var delay = delays[j];
-      var age = p.f - delay;
-      if (age < 2 || age > 28) continue;
-      var jy = jumpY(age);
-      if (Math.abs(jy - p.y) > 27) continue;
-      var movable = WALK * Math.max(0, p.f - group) + 9;
-      if (Math.abs(p.x - predictedX) > movable + HALF) continue;
-      var standX = clamp(p.x, minX, maxX);
-      var height = PLAYER_GY - p.y;
-      var netNear = NET - Math.abs(p.x - NET);
-      var score = height * 2.3 + netNear * 0.52 - p.f * 0.9;
-      if (p.vy > 0) score += 18;
-      if (age >= 5 && age <= 18) score += 20;
-      if (!best || score > best.score) {
-        best = { jumpDelay: delay, contactF: p.f, standX: standX,
-          contact: { x: p.x, y: p.y, vy: p.vy }, score: score };
-      }
-    }
+function updateTouches(s) {
+  var ballOnLeft = s.ball.x < NET_X;
+  if (g_prev_ball_on_left !== null && ballOnLeft !== g_prev_ball_on_left) g_touches = 0;
+  g_prev_ball_on_left = ballOnLeft;
+  if (s.meta.rallyFrameCount < 4) { g_touches = 0; return; }
+  if (g_prev === null) return;
+  var predicted = ballAfter(g_prev.ball, s.tick - g_prev_tick);
+  var deviated = Math.abs(predicted.x - s.ball.x) > 2 ||
+    Math.abs(predicted.yV - s.ball.yVelocity) > 2;
+  if (deviated) {
+    var nearMe = Math.abs(s.ball.x - s.self.x) < 90 && Math.abs(s.ball.y - s.self.y) < 110;
+    var myHalf = s.side === 'LEFT' ? s.ball.x < NET_X + 40 : s.ball.x > NET_X - 40;
+    if (nearMe && myHalf) g_touches += 1;
   }
+}
+
+function walkTo(targetX, myPredX) {
+  var dx = targetX - myPredX;
+  if (dx > -7 && dx < 7) return 0;
+  var step = WALK_SPEED * g_group;
+  var best = 0, bestErr = Math.abs(dx);
+  if (Math.abs(dx - step) < bestErr) { best = 1; bestErr = Math.abs(dx - step); }
+  if (Math.abs(dx + step) < bestErr) best = -1;
   return best;
 }
 
-function defenseAnchor(s, isLeft, minX, maxX) {
-  var base = isLeft ? 108 : 324;
-  var contact = { x: s.ball.x, y: s.ball.y, vy: s.ball.yVelocity };
-  var weighted = 0;
-  var weights = 0;
-  var minLand = isLeft ? 0 : NET;
-  var maxLand = isLeft ? NET : GW;
-
-  for (var i = 0; i < SHOTS.length; i++) {
-    var sim = shotPath(contact, SHOTS[i].fast, SHOTS[i].y, 100);
-    var land = landing(sim.path);
-    if (land.x < minLand || land.x > maxLand) continue;
-    var w = M.oppStats[i];
-    if (SHOTS[i].y === 1 && land.f <= 14) w *= 1.6;
-    weighted += land.x * w;
-    weights += w;
-  }
-  if (weights > 0) base = weighted / weights;
-  if (M.oppLandingMean !== null) {
-    // 실제로 본 공격의 낙하지점이 모델보다 우선한다. 좌우 AI 편향과 벽샷도
-    // 별도 예외 없이 이 평균에 흡수된다.
-    base = base * 0.38 + M.oppLandingMean * 0.62;
-  }
-  // 빠른 플랫/찍기가 관측되면 네트 쪽 선제 블로킹 위치를 조금 더 남긴다.
-  var fastDanger = (M.oppStats[4] - 1) + (M.oppStats[5] - 1);
-  var safe = fastDanger > 0 ? (isLeft ? 126 : 306) : (isLeft ? 108 : 324);
-  return clamp(base * 0.72 + safe * 0.28, minX, maxX);
+function fallbackAction(s) {
+  var x = 0;
+  var dx = s.ball.expectedLandingPointX - s.self.x;
+  if (Math.abs(dx) > 8) x = dx > 0 ? 1 : -1;
+  return { x: x, y: 0, hit: 0 };
 }
 
-function shouldPreJump(s, isLeft, anchor, predictedX, group) {
-  var oppAir = s.opp.state === 1 || s.opp.state === 2;
-  var ballNearOpp = Math.abs(s.ball.x - s.opp.x) < 105 &&
-    Math.abs(s.ball.y - s.opp.y) < 135;
-  var ballOnOppHalf = onOppCourt(s.ball.x, isLeft, -25);
-  var aligned = Math.abs(predictedX - anchor) <= WALK * group + 22;
-  var usefulHeight = s.ball.y > 55 && s.ball.y < 220;
-  var fastDanger = (M.oppStats[4] - 1) + (M.oppStats[5] - 1);
-  var variance = M.oppLandingCount > 1 ?
-    M.oppLandingM2 / (M.oppLandingCount - 1) : 99999;
-  var repeatsZone = M.oppLandingMean !== null &&
-    Math.abs(s.ball.expectedLandingPointX - M.oppLandingMean) < 42;
-  // 반복 코스가 확인된 상대에게만 선제 블로킹한다. 공격 위치가 계속 바뀌는
-  // 상대에게는 지상 기동성을 남겨 깊은 공과 짧은 공을 모두 받는다.
-  var armedThreat = M.oppLandingCount >= 2 && repeatsZone &&
-    (variance < 1100 || (fastDanger >= 2 && variance < 2200));
-  return oppAir && armedThreat && ballNearOpp && ballOnOppHalf && aligned && usefulHeight;
-}
+function decideCore(s) {
+  var cfg = s.config || {};
+  var tf = cfg.tickFrameGroupSize || 0;
+  g_group = tf > 0 ? tf : 3;
 
-/*
- * 일반 상대용 계획기.
- *
- * 상대 프로필이 아직 없거나 공격 코스 분산이 큰 동안에는 선제 점프를 하지
- * 않는다. 대신 공의 미래 궤적과 점프 포물선이 만나는 접촉 창을 선택한다.
- * 카운터 모드와 달리 상대 행동을 가정하지 않아 무작위·다양성 높은 봇에 강하다.
- */
-var GP = {
-  HORIZON: 93,
-  LATENCY: 3,
-  DEADBAND: 12,
-  HOME_FROM_NET: 154,
-  REACH_X: 24,
-  REACH_Y: 21,
-  W_HEIGHT: 2.27,
-  W_NET: 2.03,
-  W_EARLY: 0.81,
-  POWER_LEAD: 7,
-  JUMP_MAX_DELAY: 22,
-  SERVE_MAX_FRAME: 17,
-  SERVE_W_HEIGHT: 4.84,
-  NET_MARGIN: 32,
-  W_LAND_DIST: 2.49,
-  W_LAND_TIME: 0.99,
-  W_NET_SAFE: 0.19
-};
+  var isRight = s.side === 'RIGHT';
+  var minX = isRight ? NET_X + PLAYER_HALF : PLAYER_HALF;
+  var maxX = isRight ? GROUND_WIDTH - PLAYER_HALF : NET_X - PLAYER_HALF;
+  var towardNet = isRight ? -1 : 1;
 
-function genericPlan(s, path, minX, maxX, isServe) {
-  var best = null;
-  var airborne = s.self.state === 1;
-  var elapsed = 0;
-  if (airborne) {
-    for (var e = 0; e <= 32; e++) {
-      if (jumpY(e) === s.self.y) {
-        elapsed = e;
-        break;
-      }
+  updateTouches(s);
+  var me = s.self, ball = s.ball;
+  if (me.state >= 3) return { x: 0, y: 0, hit: 0 };
+
+  var myPredX = clamp(me.x + g_last_action.x * WALK_SPEED * LATENCY_FRAMES, minX, maxX);
+
+  if (me.state === 1 || me.state === 2) {
+    var vy = estimateMyVy(s);
+    var me0 = {
+      x: me.x, y: me.y, vy: vy, state: me.state,
+      delay: (me.state === 2 && me.frameNumber === 0) ? 3 : 0,
+      frameNo: me.state === 2 ? me.frameNumber : 0,
+      collFlag: (Math.abs(ball.x - me.x) <= PLAYER_HALF &&
+                 Math.abs(ball.y - me.y) <= PLAYER_HALF)
+    };
+    var first = { x: g_last_action.x, y: g_last_action.y, hit: g_last_action.hit };
+    var curScore = null;
+    if (g_air_policy !== null) curScore = scoreAirAction(s, me0, first, g_air_policy, minX, maxX);
+    var pol = chooseAirPolicy(s, me0, minX, maxX);
+    if (curScore !== null && curScore > -400) {
+      if (pol === null || pol.score <= curScore + 15) return g_air_policy;
     }
+    if (pol !== null && pol.score > -400) { g_air_policy = pol.action; return pol.action; }
+    g_air_policy = null;
+    var landingOurs = isRight ? ball.expectedLandingPointX >= NET_X
+                              : ball.expectedLandingPointX <= NET_X;
+    var moveTo = landingOurs ? clamp(ball.expectedLandingPointX, minX, maxX)
+                             : (isRight ? NET_X + 108 : NET_X - 108);
+    return { x: walkTo(moveTo, myPredX), y: 0, hit: 0 };
   }
 
-  for (var i = 0; i < path.length; i++) {
-    var p = path[i];
-    if (p.ground) break;
-    if (p.f <= GP.LATENCY) continue;
-    if (p.x < minX - HALF || p.x > maxX + HALF) continue;
+  g_air_policy = null;
+  var landingX = ball.expectedLandingPointX;
+  var ballOurs = isRight ? landingX >= NET_X : landingX <= NET_X;
+  var landFrames = framesToLanding(ball);
+  var ballOnOurHalf = isRight ? ball.x >= NET_X : ball.x <= NET_X;
+  var oppMayHit = CFG.BAND === 1 && !ballOnOurHalf && Math.abs(ball.x - s.opp.x) < 130;
+  var standbyC = isRight ? NET_X + 108 : NET_X - 108;
 
-    var moveFrames = p.f - GP.LATENCY;
-    var lo = clamp(s.self.x - WALK * moveFrames, minX, maxX);
-    var hi = clamp(s.self.x + WALK * moveFrames, minX, maxX);
-    var wantLo = p.x - GP.REACH_X;
-    var wantHi = p.x + GP.REACH_X;
-    if (hi < wantLo || lo > wantHi) continue;
-    var standX = clamp(p.x, Math.max(lo, wantLo), Math.min(hi, wantHi));
-    var candidates = [];
-
-    if (Math.abs(p.y - PLAYER_GY) <= GP.REACH_Y) candidates.push(-1);
-    if (airborne) {
-      var idx = elapsed + p.f;
-      if (idx <= 32 && Math.abs(p.y - jumpY(idx)) <= GP.REACH_Y) candidates.push(-2);
-    } else {
-      for (var d = GP.LATENCY; d <= GP.JUMP_MAX_DELAY && d < p.f; d++) {
-        var age = p.f - d;
-        if (age <= 32 && Math.abs(p.y - jumpY(age)) <= GP.REACH_Y) {
-          candidates.push(d);
-          break;
-        }
-      }
-    }
-    for (var c = 0; c < candidates.length; c++) {
-      var delay = candidates[c];
-      var aerial = delay !== -1;
-      var score = (isServe ? GP.SERVE_W_HEIGHT : GP.W_HEIGHT) *
-          (PLAYER_GY - p.y) +
-        GP.W_NET * (NET - Math.abs(p.x - NET)) * 0.5 -
-        (isServe ? 0 : GP.W_EARLY) * p.f +
-        (aerial ? 60 : 0);
-      if (!best || score > best.score) {
-        best = { f: p.f, x: p.x, y: p.y, vy: p.vy, d: delay,
-          standX: standX, score: score, aerial: aerial };
-      }
-    }
-  }
-  return best;
-}
-
-function simulateGenericShot(plan, yDir) {
-  var b = {
-    x: plan.x,
-    y: plan.y,
-    vx: plan.x < NET ? 20 : -20,
-    vy: Math.max(Math.abs(plan.vy), 15) * yDir * 2
-  };
-  var netMargin = 999;
-  var hitNet = false;
-  for (var f = 1; f <= 120; f++) {
-    if (b.x + b.vx < 0 || b.x + b.vx > GW) b.vx = -b.vx;
-    if (b.y + b.vy < 0) b.vy = 1;
-    if (Math.abs(b.x - NET) < NET_HW && b.y > NET_TOP) {
-      hitNet = true;
-      if (b.y <= NET_BOTTOM) {
-        if (b.vy > 0) b.vy = -b.vy;
-      } else {
-        b.vx = b.x < NET ? -Math.abs(b.vx) : Math.abs(b.vx);
-      }
-    }
-    if (Math.abs(b.x - NET) < NET_HW + 20) {
-      netMargin = Math.min(netMargin, NET_TOP - b.y);
-    }
-    if (b.y + b.vy > BALL_GY) {
-      return { landX: b.x, frames: f, hitNet: hitNet, netMargin: netMargin };
-    }
-    b.y += b.vy;
-    b.x += b.vx;
-    b.vy += 1;
-  }
-  return { landX: b.x, frames: 120, hitNet: hitNet, netMargin: netMargin };
-}
-
-function genericShot(plan, s, isLeft, urgent) {
-  var best = null;
-  for (var yDir = -1; yDir <= 1; yDir++) {
-    var sim = simulateGenericShot(plan, yDir);
-    if (sim.hitNet || !onOppCourt(sim.landX, isLeft, 0) ||
-        sim.netMargin < GP.NET_MARGIN) continue;
-    var idx = yDir + 4;
-    var score = GP.W_LAND_DIST * Math.abs(sim.landX - s.opp.x) -
-      GP.W_LAND_TIME * sim.frames +
-      GP.W_NET_SAFE * Math.min(sim.netMargin, 80);
-    if (!best || score > best.score) best = { y: yDir, score: score, index: idx };
-  }
-  if (!best) {
-    var arc = simulateGenericShot(plan, -1);
-    return { y: -1, score: -999, index: 3, ok: !arc.hitNet };
-  }
-  if (urgent && best.y === 1) best.y = 0;
-  best.ok = true;
-  return best;
-}
-
-function genericPolicy(s, isLeft, minX, maxX, predictedX, group, path, land) {
-  var towardNet = isLeft ? 1 : -1;
-  var home = clamp(NET - towardNet * GP.HOME_FROM_NET, minX, maxX);
-  var engineLand = s.ball.expectedLandingPointX;
-  var onMine = onOurCourt(engineLand, isLeft, 0);
-  var isServe = s.ball.xVelocity === 0 && onOurCourt(s.ball.x, isLeft, 0) &&
-    s.meta.rallyFrameCount <= GP.SERVE_MAX_FRAME;
-  if (s.self.state !== 0 && s.self.state !== 1) return neutral();
-  var plan = genericPlan(s, path, minX, maxX, isServe);
-
-  if (!plan) {
-    var target = onMine ? engineLand : home;
-    if (s.self.state === 0 && onMine) {
-      var gap = Math.abs(engineLand - s.self.x);
-      var walkReach = WALK * Math.max(0, land.f - GP.LATENCY);
-      var diveReach = DIVE * Math.max(0, land.f - GP.LATENCY);
-      if (gap > 15 && gap > walkReach && gap <= Math.min(diveReach, 161)) {
-        return { x: sign(engineLand - s.self.x), y: 0, hit: 1 };
-      }
-    }
-    target = clamp(target, minX, maxX);
-    var homeDx = target - s.self.x;
-    return { x: Math.abs(homeDx) > GP.DEADBAND ? sign(homeDx) : 0, y: 0, hit: 0 };
+  if (!ballOurs || oppMayHit) {
+    var oppImminent = s.opp.state === 1 || s.opp.state === 2 ||
+      (Math.abs(ball.x - s.opp.x) < 90 && Math.abs(ball.y - s.opp.y) < 130);
+    var standbyT;
+    if (oppImminent) standbyT = defenseTarget(s, minX, maxX, standbyC);
+    else if (!ballOurs) standbyT = standbyC;
+    else standbyT = clamp(landingX, standbyC - 45, standbyC + 45);
+    return { x: walkTo(standbyT, myPredX), y: 0, hit: 0 };
   }
 
-  var dx = plan.standX - s.self.x;
-  var x = Math.abs(dx) > GP.DEADBAND ? sign(dx) : 0;
-  if (s.self.state === 1) {
-    if (plan.f <= GP.POWER_LEAD) {
-      var shot = genericShot(plan, s, isLeft, M.touchCount >= 3);
-      M.selectedShot = shot.index;
-      x = sign(plan.x - s.self.x) || towardNet;
-      if (!shot.ok && isServe) return { x: x, y: 0, hit: 0 };
-      return { x: x, y: shot.y, hit: 1 };
-    }
-    return { x: x, y: 0, hit: 0 };
+  var kill = findKillJump(s, minX, maxX);
+  if (kill !== null) { g_air_policy = kill.smash; return { x: kill.jx, y: -1, hit: 0 }; }
+
+  var icept = findIntercept(s, myPredX, minX, maxX);
+  if (icept !== null) {
+    var jx = walkTo(icept.targetX, myPredX);
+    return { x: jx, y: icept.jump ? -1 : 0, hit: 0 };
   }
-  if (plan.aerial && plan.d >= 0 && plan.d <= GP.LATENCY) {
-    return { x: x, y: -1, hit: 0 };
+
+  var offset;
+  if (g_touches >= 3) offset = 18;
+  else {
+    var upV = Math.max(15, Math.abs(ballAfter(ball, landFrames - 1).yV));
+    var flight = 2 * upV + 2;
+    var hoverX = isRight ? NET_X + 12 : NET_X - 12;
+    var needXv = (hoverX - landingX) / flight;
+    offset = clamp(Math.round(3 * Math.abs(needXv)) + 1, 4, 26);
+  }
+  var targetX = clamp(landingX - towardNet * offset, minX, maxX);
+  var dx = targetX - myPredX;
+  var x = walkTo(targetX, myPredX);
+
+  var dist = Math.abs(dx);
+  if (landFrames < 24 && dist > WALK_SPEED * landFrames + 6 &&
+      dist <= DIVE_SPEED * landFrames + 44 && (ball.y > 140 || landFrames <= 10)) {
+    return { x: dx > 0 ? 1 : -1, y: 0, hit: 1 };
   }
   return { x: x, y: 0, hit: 0 };
 }
 
-function counterProfileReady(isLeft) {
-  if (M.counterLocked) return true;
-  if (M.oppLandingCount < 1 || M.oppLandingMean === null) return false;
-  var variance = M.oppLandingM2 / Math.max(1, M.oppLandingCount - 1);
-  var middleZone = isLeft ?
-    (M.oppLandingMean >= 68 && M.oppLandingMean <= 178) :
-    (M.oppLandingMean >= 254 && M.oppLandingMean <= 364);
-  var compactRatio = M.compactAttackPoseCount / M.oppLandingCount;
-  var stableEnough = M.oppLandingCount === 1 || variance < 1300;
-  // v5: 첫 공격 속도 의존 제거. 상대가 네트 근처 높은 지점에서 강타 자세를
-  // 반복하고 코스가 안정적이면 카운터를 켠다. 기존 조건은 상대가 첫 공격만
-  // 빠르게 해도 세트 내내 카운터가 안 켜지는 취약점이었다.
-  if (middleZone && stableEnough && M.compactAttackPoseCount >= 1 &&
-      compactRatio >= 0.75 && M.oppLandingCount >= 1) {
-    M.counterLocked = true;
-  }
-  return M.counterLocked;
-}
-
-function decideCore(s) {
-  var isLeft = s.side === 'LEFT';
-  var towardNet = isLeft ? 1 : -1;
-  var minX = isLeft ? HALF : NET + HALF;
-  var maxX = isLeft ? NET - HALF : GW - HALF;
-  var group = s.config && s.config.tickFrameGroupSize > 0 ?
-    s.config.tickFrameGroupSize : 3;
-
-  observe(s, isLeft);
-
-  var me = s.self;
-  if (me.state >= 3) return neutral();
-
-  var predictedX = clamp(me.x + M.lastAction.x * WALK * group,
-    minX, maxX);
-  var path = ballPath(s.ball, 100);
-  var land = landing(path);
-  var ballWillBeOurs = onOurCourt(land.x, isLeft, 0);
-  var ballOnOurHalf = onOurCourt(s.ball.x, isLeft, -10);
-
-  // 자세·코스가 함께 확인되기 전에는 범용 공수 전체를 유지한다. 단순히
-  // 비슷한 낙하지점이 두 번 나왔다는 이유만으로 공격 체계까지 바꾸지 않는다.
-  var profileReady = counterProfileReady(isLeft);
-  if (!profileReady) {
-    return genericPolicy(s, isLeft, minX, maxX, predictedX, group, path, land);
-  }
-
-  // 공중에서는 수비 점프와 공격 점프를 구분하지 않는다. 접촉 창이 생기면
-  // 현재 문맥에서 가장 좋은 공격군을 고르고, 없으면 공을 따라간다.
-  if (me.state === 1 || me.state === 2) {
-    var descending = M.prev && me.y > M.prev.selfY;
-    if (descending && me.y > 222) {
-      return { x: moveInput(isLeft ? 118 : 314, predictedX, group), y: 0, hit: 0 };
-    }
-
-    var best = null;
-    for (var xi = -1; xi <= 1; xi++) {
-      var c = predictAirContact(s, xi, group, 22);
-      if (!c) continue;
-      var shot = chooseShot(c, s, isLeft);
-      var urgency = 40 - c.f * 2;
-      var score = shot.score + urgency - Math.abs(c.playerX - c.x) * 0.2;
-      if (!best || score > best.score) best = { x: xi, contact: c, shot: shot, score: score };
-    }
-
-    if (best) {
-      var chosen = best.shot;
-      if (!M.airAim || s.tick > M.airAimUntil || chosen.score > M.airAim.score + 35) {
-        M.airAim = chosen;
-        M.airAimUntil = s.tick + group * 4;
-      }
-      chosen = M.airAim;
-      M.selectedShot = chosen.index;
-      var hitX = chosen.fast ? best.x : 0;
-      if (chosen.fast && hitX === 0) hitX = sign(best.contact.x - me.x) || towardNet;
-      return { x: hitX, y: chosen.y, hit: 1 };
-    }
-
-    // 선제 블로킹 중에는 공이 넘어오는 통로를 따라가며 히트를 미리 장전한다.
-    var intercept = null;
-    for (var q = 0; q < path.length; q++) {
-      if (onOurCourt(path[q].x, isLeft, -HALF) && path[q].y >= 80 && path[q].y <= 225) {
-        intercept = path[q];
-        break;
-      }
-    }
-    var airTarget = intercept ? intercept.x : (ballWillBeOurs ? land.x : (isLeft ? 124 : 308));
-    var ax = sign(airTarget - predictedX);
-    if (Math.abs(airTarget - predictedX) < 9) ax = 0;
-    return { x: ax, y: -1, hit: 1 };
-  }
-
-  M.airAim = null;
-  M.airAimUntil = 0;
-
-  var anchor = defenseAnchor(s, isLeft, minX, maxX);
-  var incomingFast = ballOnOurHalf &&
-    ((isLeft && s.ball.xVelocity < -14) || (!isLeft && s.ball.xVelocity > 14));
-
-  // Jayce류 고속 플랫의 핵심 대응. 상대 타격이 끝난 뒤가 아니라 직전에 뜬다.
-  if (shouldPreJump(s, isLeft, anchor, predictedX, group)) {
-    return { x: moveInput(anchor, predictedX, group), y: -1, hit: 0 };
-  }
-
-  // 이미 고속 공이 들어왔다면 통로로 즉시 점프한다. 너무 멀면 다이빙을 우선한다.
-  if (incomingFast) {
-    var corridor = null;
-    for (var r = 0; r < path.length; r++) {
-      if (onOurCourt(path[r].x, isLeft, -HALF) && path[r].y >= 105 && path[r].y <= 225) {
-        corridor = path[r];
-        break;
-      }
-    }
-    if (corridor) {
-      var gap = Math.abs(corridor.x - predictedX) - HALF;
-      if (gap <= WALK * corridor.f + 12) {
-        return { x: moveInput(corridor.x, predictedX, group), y: -1, hit: 0 };
-      }
-    }
-  }
-
-  if (!ballWillBeOurs) {
-    return { x: moveInput(anchor, predictedX, group), y: 0, hit: 0 };
-  }
-
-  var plan = groundAttackPlan(s, path, minX, maxX, predictedX, group);
-  if (plan) {
-    var px = moveInput(plan.standX, predictedX, group);
-    if (plan.jumpDelay <= group) return { x: px, y: -1, hit: 0 };
-    return { x: px, y: 0, hit: 0 };
-  }
-
-  // 공격 계획이 아직 없으면 다음 셋업을 위해 낙하지점의 네트 반대쪽에 선다.
-  var offset = M.touchCount >= 3 ? 18 : 8;
-  var receiveX = clamp(land.x - towardNet * offset, minX, maxX);
-  var dx = receiveX - predictedX;
-  var framesLeft = land.f;
-  var walkReach = WALK * Math.max(0, framesLeft - group) + HALF;
-  var diveReach = DIVE * Math.min(Math.max(0, framesLeft - group), 12) + HALF;
-  if (framesLeft <= 22 && Math.abs(dx) > walkReach && Math.abs(dx) <= diveReach &&
-      (s.ball.y > 145 || framesLeft <= 9)) {
-    return { x: sign(dx), y: 0, hit: 1 };
-  }
-  return { x: moveInput(receiveX, predictedX, group), y: 0, hit: 0 };
-}
-
-function saveState(s, action) {
-  // 내가 선택한 파워히트가 실제 공에 반영된 순간 공격 결과 추적을 시작한다.
-  var isLeft = s.side === 'LEFT';
-  var away = isLeft ? s.ball.xVelocity > 0 : s.ball.xVelocity < 0;
-  if (s.ball.isPowerHit && away && M.selectedShot !== null) {
-    if (!M.liveShot || M.liveShot.rally !== M.rallySerial) {
-      M.liveShot = { index: M.selectedShot, returned: false, rally: M.rallySerial };
-    }
-  }
-  M.prev = {
-    selfY: s.self.y,
-    ballVx: s.ball.xVelocity,
-    ballVy: s.ball.yVelocity
+function savePrev(s) {
+  g_prev = {
+    ball: { x: s.ball.x, y: s.ball.y, xVelocity: s.ball.xVelocity, yVelocity: s.ball.yVelocity },
+    selfY: s.self.y
   };
-  M.prevTick = s.tick;
-  M.lastAction = action;
+  g_prev_tick = s.tick;
 }
 
-// 게임 엔진이 전역 엔트리 포인트로 찾아 호출한다.
-// eslint-disable-next-line no-unused-vars
-function decide(snapshot) {
+function decide(s) {
   var action;
-  try {
-    action = decideCore(snapshot);
-  } catch (e) {
-    action = neutral();
-  }
-  action = {
-    x: sign(action && action.x || 0),
-    y: sign(action && action.y || 0),
-    hit: action && action.hit ? 1 : 0
-  };
-  saveState(snapshot, action);
+  try { action = decideCore(s); } catch (e) { action = fallbackAction(s); }
+  g_last_action = action;
+  savePrev(s);
   return action;
 }
