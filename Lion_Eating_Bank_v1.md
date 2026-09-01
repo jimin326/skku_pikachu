@@ -1,7 +1,7 @@
-# OurBot v12 통합 설계 문서
+# Lion_Eating_Bank_v1 통합 설계 문서
 
 > 문서 기준일: 2026-09-02  
-> 대상 파일: `src/code-here/OurBot_v12.js`  
+> 대상 파일: `Lion_Eating_Bank_v1.js`  
 > 생성기: `bot-dev/build_v12.mjs`  
 > 회귀 테스트: `bot-dev/v12_regression.mjs`
 
@@ -623,7 +623,7 @@ Adaptive 학습과 선택적 DFN은 한두 포인트 테스트보다 점수가 �
 | `src/code-here/OurBot_v11.js` | Thunder 원본 및 비교 기준 |
 | `src/code-here/AdaptiveCounter_v5_2.js` | 일반 플레이 원본 |
 | `src/code-here/Sajamokneun_v3_2.js` | 모델 기반 탐색·상태 인식 연구 원본 |
-| `src/code-here/OurBot_v12.js` | 최종 생성된 단일 파일 봇 |
+| `Lion_Eating_Bank_v1.js` | 최종 생성된 단일 파일 봇 |
 | `bot-dev/build_v12.mjs` | v12 생성기와 통합 로직의 실제 소스 |
 | `bot-dev/v12_regression.mjs` | 고정 시드, 썬더 parity, 실행시간 회귀 테스트 |
 | `bot-dev/sim.mjs` | 포인트 단위 헤드리스 시뮬레이터 |
