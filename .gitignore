@@ -1,0 +1,11 @@
+__pycache__/
+.venv-rl/
+
+# Generated training output
+bot-dev/rl/checkpoints/
+bot-dev/rl/runs/
+
+# Copied from the official tournament checkout by setup_rl_engine.ps1
+src/resources/js/physics.js
+src/resources/js/rand.js
+src/resources/js/bot/botContract.js

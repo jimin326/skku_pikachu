@@ -1,0 +1,12 @@
+{
+  "name": "skku-pikachu-rl-harness",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test:physics": "node bot-dev/rl/physics_clamp_smoke.mjs",
+    "test:env": "node bot-dev/rl/env_smoke.mjs"
+  }
+}
