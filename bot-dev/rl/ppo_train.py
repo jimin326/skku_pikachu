@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -18,6 +19,7 @@ from torch import nn
 from torch.distributions import Categorical
 
 from node_bridge import ParallelNodeVectorEnv
+from opponent_pool import load_training_pool
 
 
 @dataclass
@@ -42,9 +44,14 @@ class PPOConfig:
     save_every_minutes: float = 60.0
     log_every: int = 1
     checkpoint_dir: str = "bot-dev/rl/checkpoints/ppo"
-    device: str = "cpu"
+    device: str = "auto"
     resume: str = ""
     max_wall_minutes: float = 0.0
+    opponent_registry: str = "bot-dev/rl/eval/opponents.json"
+    opponent_split: str = "bot-dev/rl/eval/splits/train.json"
+    initial_model: str = ""
+    recovery_dir: str = ""
+    league_manifest: str = ""
 
 
 class ActorCritic(nn.Module):
@@ -80,21 +87,53 @@ class ActorCritic(nn.Module):
 
 
 class SeriesScheduler:
-    def __init__(self, count: int, games_per_series: int, seed: int) -> None:
+    def __init__(self, count: int, games_per_series: int, seed: int, opponents=None) -> None:
         self.rng = random.Random(seed)
+        self.opponents = list(opponents or [])
+        if not self.opponents:
+            raise ValueError("opponent pool is empty")
         self.games_per_series = games_per_series
         self.games = [0] * count
         self.sides = ["LEFT" if i % 2 == 0 else "RIGHT" for i in range(count)]
         self.seeds = [self._seed() for _ in range(count)]
+        self.opponent_indices = [i % len(self.opponents) for i in range(count)]
+
+    def _opponent_index(self) -> int:
+        anchors = [i for i, item in enumerate(self.opponents) if item.get("poolRole") != "league"]
+        league = [i for i, item in enumerate(self.opponents) if item.get("poolRole") == "league"]
+        choices = league if league and self.rng.random() < 0.5 else anchors
+        return choices[self.rng.randrange(len(choices))]
 
     def _seed(self) -> int:
         return self.rng.randrange(1, 2**32)
 
     def initial(self):
         return [
-            {"seed": self.seeds[i], "side": self.sides[i]}
+            {"seed": self.seeds[i], "side": self.sides[i], "opponent": self.opponents[self.opponent_indices[i]]}
             for i in range(len(self.games))
         ]
+
+    def state_dict(self):
+        return {
+            "rng": self.rng.getstate(),
+            "games": list(self.games),
+            "sides": list(self.sides),
+            "seeds": list(self.seeds),
+            "opponentIndices": list(self.opponent_indices),
+        }
+
+    def load_state_dict(self, state, *, fresh_episodes: bool = True):
+        self.rng.setstate(state["rng"])
+        self.games = list(state["games"])
+        self.sides = list(state["sides"])
+        self.seeds = list(state["seeds"])
+        self.opponent_indices = list(state["opponentIndices"])
+        if fresh_episodes:
+            for i in range(len(self.games)):
+                self.games[i] = 0
+                self.seeds[i] = self._seed()
+                self.sides[i] = "RIGHT" if self.sides[i] == "LEFT" else "LEFT"
+                self.opponent_indices[i] = self._opponent_index()
 
     def resets(self, terminated: np.ndarray, truncated: np.ndarray):
         requests: list[dict | None] = [None] * len(self.games)
@@ -108,7 +147,8 @@ class SeriesScheduler:
                 self.games[i] = 0
                 self.seeds[i] = self._seed()
                 self.sides[i] = "RIGHT" if self.sides[i] == "LEFT" else "LEFT"
-                requests[i] = {"seed": self.seeds[i], "side": self.sides[i]}
+                self.opponent_indices[i] = self._opponent_index()
+                requests[i] = {"seed": self.seeds[i], "side": self.sides[i], "opponent": self.opponents[self.opponent_indices[i]]}
                 continue
             self.games[i] += 1
             if self.games[i] < self.games_per_series:
@@ -117,7 +157,8 @@ class SeriesScheduler:
                 self.games[i] = 0
                 self.seeds[i] = self._seed()
                 self.sides[i] = "RIGHT" if self.sides[i] == "LEFT" else "LEFT"
-                requests[i] = {"seed": self.seeds[i], "side": self.sides[i]}
+                self.opponent_indices[i] = self._opponent_index()
+                requests[i] = {"seed": self.seeds[i], "side": self.sides[i], "opponent": self.opponents[self.opponent_indices[i]]}
         return requests
 
 
@@ -140,7 +181,14 @@ def compute_gae(
     return advantages, advantages + values
 
 
-def save_checkpoint(path: Path, model, optimizer, config, update, global_step) -> None:
+def match_terminal_flags(infos) -> np.ndarray:
+    """Terminate GAE at match point independently of reward shaping weights."""
+    return np.asarray(
+        [bool(info.get("gameEndedThisStep", False)) for info in infos], dtype=np.bool_
+    )
+
+
+def save_checkpoint(path: Path, model, optimizer, config, update, global_step, scheduler=None, pool_metadata=None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "model": model.state_dict(),
@@ -152,6 +200,10 @@ def save_checkpoint(path: Path, model, optimizer, config, update, global_step) -
         "pythonRngState": random.getstate(),
         "numpyRngState": np.random.get_state(),
         "torchRngState": torch.get_rng_state(),
+        "torchCudaRngStateAll": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
+        "scheduler": scheduler.state_dict() if scheduler is not None else None,
+        "opponentPool": pool_metadata,
+        "resumeMode": "fresh-episodes",
     }
     temporary = path.with_name(path.name + ".tmp")
     torch.save(payload, temporary)
@@ -164,14 +216,39 @@ def save_checkpoint(path: Path, model, optimizer, config, update, global_step) -
     latest_temporary = latest.with_name(latest.name + ".tmp")
     shutil.copyfile(path, latest_temporary)
     os.replace(latest_temporary, latest)
+    if config.recovery_dir:
+        recovery = Path(config.recovery_dir)
+        recovery.mkdir(parents=True, exist_ok=True)
+        mirrored = recovery / path.name
+        mirrored_temporary = mirrored.with_name(mirrored.name + ".tmp")
+        shutil.copyfile(path, mirrored_temporary)
+        os.replace(mirrored_temporary, mirrored)
+        digest = hashlib.sha256(mirrored.read_bytes()).hexdigest()
+        pointer = recovery / "latest.json"
+        pointer_temporary = pointer.with_name(pointer.name + ".tmp")
+        pointer_temporary.write_text(json.dumps({
+            "checkpoint": mirrored.name,
+            "sha256": digest,
+            "globalStep": global_step,
+            "resumeMode": "fresh-episodes",
+        }, indent=2), encoding="utf-8")
+        os.replace(pointer_temporary, pointer)
 
 
 def train(config: PPOConfig) -> Path:
     random.seed(config.seed)
     np.random.seed(config.seed)
     torch.manual_seed(config.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(config.seed)
     torch.set_num_threads(1)
-    device = torch.device(config.device)
+    device_name = "cuda" if config.device == "auto" and torch.cuda.is_available() else (
+        "cpu" if config.device == "auto" else config.device
+    )
+    device = torch.device(device_name)
+    opponents, pool_metadata = load_training_pool(
+        config.opponent_registry, config.opponent_split, config.league_manifest or None
+    )
     checkpoint_dir = Path(config.checkpoint_dir)
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     (checkpoint_dir / "config.json").write_text(
@@ -183,14 +260,13 @@ def train(config: PPOConfig) -> Path:
         envs_per_worker=config.envs_per_worker,
         env_options={"winningScore": config.winning_score},
     ) as env:
-        scheduler = SeriesScheduler(env.count, config.games_per_series, config.seed)
-        observations, _ = env.reset(scheduler.initial())
+        scheduler = SeriesScheduler(env.count, config.games_per_series, config.seed, opponents)
         model = ActorCritic(env.observation_size, env.action_count).to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate, eps=1e-5)
         global_step = 0
         start_update = 0
         if config.resume:
-            resumed = torch.load(config.resume, map_location=device, weights_only=False)
+            resumed = torch.load(config.resume, map_location="cpu", weights_only=False)
             model.load_state_dict(resumed["model"])
             optimizer.load_state_dict(resumed["optimizer"])
             global_step = int(resumed.get("global_step", 0))
@@ -201,6 +277,16 @@ def train(config: PPOConfig) -> Path:
                 np.random.set_state(resumed["numpyRngState"])
             if "torchRngState" in resumed:
                 torch.set_rng_state(resumed["torchRngState"])
+            if resumed.get("torchCudaRngStateAll") is not None and torch.cuda.is_available():
+                torch.cuda.set_rng_state_all(resumed["torchCudaRngStateAll"])
+            if (resumed.get("opponentPool") or {}).get("manifestSha256") != pool_metadata["manifestSha256"]:
+                raise ValueError("resume opponent pool metadata does not match current manifests")
+            if resumed.get("scheduler") is not None:
+                scheduler.load_state_dict(resumed["scheduler"], fresh_episodes=True)
+        elif config.initial_model:
+            initialized = torch.load(config.initial_model, map_location="cpu", weights_only=False)
+            model.load_state_dict(initialized["model"])
+        observations, _ = env.reset(scheduler.initial())
         batch_steps = config.rollout_steps * env.count
         remaining_steps = max(0, config.total_steps - global_step)
         updates = math.ceil(remaining_steps / batch_steps)
@@ -224,6 +310,8 @@ def train(config: PPOConfig) -> Path:
             done_buffer = np.zeros((config.rollout_steps, env.count), dtype=np.float32)
             value_buffer = np.zeros((config.rollout_steps, env.count), dtype=np.float32)
             loss_mask_buffer = np.zeros((config.rollout_steps, env.count), dtype=np.float32)
+            reward_component_sums = {"point": 0.0, "match": 0.0, "touch": 0.0, "crossing": 0.0}
+            completed_opponents: dict[str, int] = {}
 
             for step in range(config.rollout_steps):
                 obs_buffer[step] = observations
@@ -238,19 +326,20 @@ def train(config: PPOConfig) -> Path:
                 )
                 done = np.logical_or(terminated, truncated)
                 reward_buffer[step] = rewards
-                # A match reward closes the return chain at the scoring frame;
-                # masked post-game Worker ticks are still executed for fidelity.
-                match_ended = np.asarray(
-                    [abs(info.get("reward", {}).get("match", 0.0)) > 0 for info in infos],
-                    dtype=np.bool_,
-                )
+                # Close the return chain at match point while still executing
+                # the masked post-game Worker ticks for runtime fidelity.
+                match_ended = match_terminal_flags(infos)
                 done_buffer[step] = np.logical_or(done, match_ended)
                 loss_mask_buffer[step] = np.asarray(
                     [info.get("lossMask", 0.0) for info in infos], dtype=np.float32
                 )
                 for i, info in enumerate(infos):
+                    for key in reward_component_sums:
+                        reward_component_sums[key] += float(info.get("reward", {}).get(key, 0.0))
                     if not done[i]:
                         continue
+                    opponent_id = str(info.get("opponentId", "unknown"))
+                    completed_opponents[opponent_id] = completed_opponents.get(opponent_id, 0) + 1
                     scores = info.get("scores", {})
                     match_window.append(
                         float(
@@ -354,6 +443,8 @@ def train(config: PPOConfig) -> Path:
                 if nt_wins + nt_losses
                 else None,
                 "winningLionServePhases": winning_phase_counts.tolist(),
+                "rewardComponents": reward_component_sums,
+                "completedMatchesByOpponent": completed_opponents,
             }
             if update % config.log_every == 0 or local_update == updates:
                 print(json.dumps(record, separators=(",", ":")), flush=True)
@@ -371,6 +462,8 @@ def train(config: PPOConfig) -> Path:
                     config,
                     update,
                     global_step,
+                    scheduler,
+                    pool_metadata,
                 )
                 if hourly_due:
                     last_time_save = now
@@ -391,7 +484,7 @@ def train(config: PPOConfig) -> Path:
                 break
 
         final_path = checkpoint_dir / f"checkpoint_{global_step:09d}.pt"
-        save_checkpoint(final_path, model, optimizer, config, update, global_step)
+        save_checkpoint(final_path, model, optimizer, config, update, global_step, scheduler, pool_metadata)
 
     return final_path
 

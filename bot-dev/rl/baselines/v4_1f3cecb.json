@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "status": "VERIFIED_AVAILABLE_OPPONENT_BASELINE",
+  "projectCommit": "4db00207169f04b7943fa3d87b3bcce38acb82f1",
+  "engineCommit": "1f3cecb90aca174ffc42ac6be4c384cc725d9e91",
+  "bot": {
+    "path": "Lion_Eating_Bank_v4.js",
+    "sha256": "3278f08abda26016cb4e68a9d0970c8428d4dbc4a5d86ced00dfe08f5afa88a5",
+    "sha256Normalized": "408bf16e4f986f893a4a5dabc749d7d494657a14811544eddcbe82c9e58bc17f"
+  },
+  "conditions": {
+    "winningScore": 10,
+    "serveRule": "random",
+    "latencyFrames": 1,
+    "sides": ["LEFT", "RIGHT"],
+    "seeds": [21001, 21023, 21059, 21089, 21101, 21139, 21157, 21191],
+    "opponents": ["builtin", "fixed_chase", "lion_v4"],
+    "gamesPerSeedSide": 1
+  },
+  "performance": {
+    "matches": {"wins": 40, "total": 48, "rate": 0.8333333333333334, "wilson95Auxiliary": [0.7042217159874441, 0.9130448642351444]},
+    "rallies": {"wins": 459, "total": 606, "rate": 0.7574257425742574, "wilson95Auxiliary": [0.7217457462009932, 0.7898626324804804]},
+    "meanRallyFrames": 146.44719471947195,
+    "pairedIdentityCheck": {
+      "generalizationBlocks": 16,
+      "generalizationDelta": 0.0,
+      "generalizationBootstrap95": [0.0, 0.0],
+      "benchmarkBlocks": 8,
+      "benchmarkDelta": 0.0,
+      "benchmarkBootstrap95": [0.0, 0.0]
+    },
+    "matchesByOpponent": {
+      "builtin": {"wins": 16, "total": 16},
+      "fixed_chase": {"wins": 16, "total": 16},
+      "lion_v4_selfplay": {"wins": 8, "total": 16, "leftWins": 3, "rightWins": 5}
+    },
+    "lossCauses": {"opponent_last_touch_score": 144, "self_last_touch_then_own_ground": 3},
+    "selfDestruction": {"count": 3, "losses": 147, "rateAmongLosses": 0.02040816326530612},
+    "serveRallies": {
+      "selfServe": {"wins": 295, "total": 295},
+      "opponentServe": {"wins": 164, "total": 311}
+    }
+  },
+  "runtimeNodeComputeOnly": {
+    "snapshots": 5000,
+    "warmup": 500,
+    "repeatA": {"p50Ns": 400, "p95Ns": 62500, "p99Ns": 153900, "maxNs": 1128900},
+    "repeatB": {"p50Ns": 400, "p95Ns": 60400, "p99Ns": 101000, "maxNs": 671600},
+    "rawBytes": 50522,
+    "gzipBytes": 15778,
+    "invalidActions": 0
+  },
+  "limitations": [
+    "builtin and fixed_chase are ceiling opponents for v4 and do not establish robust generalization",
+    "Wilson intervals are auxiliary and do not replace paired block-cluster inference",
+    "Node timing excludes Worker scheduling, browser event loop, and action application latency",
+    "named independent strong opponent sources were unavailable"
+  ]
+}

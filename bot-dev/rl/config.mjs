@@ -4,8 +4,11 @@ import { fileURLToPath } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 export const FROZEN_VICTIM = Object.freeze({
-  path: path.resolve(here, '../../Lion_Eating_Bank_v1.js'),
-  sha256: '0e7de2ef8d9ee0b159791a88f972ca0e79e70e79332d4fc99ba2663b6da765f6',
+  id: 'lion_v4',
+  familyId: 'lion_eating_bank',
+  kind: 'javascript',
+  path: path.resolve(here, '../../Lion_Eating_Bank_v4.js'),
+  sha256: '408bf16e4f986f893a4a5dabc749d7d494657a14811544eddcbe82c9e58bc17f',
 });
 
 export const DEFAULT_ENV_CONFIG = Object.freeze({
@@ -19,9 +22,9 @@ export const DEFAULT_ENV_CONFIG = Object.freeze({
 
 export const DEFAULT_REWARD_CONFIG = Object.freeze({
   point: 1,
-  match: 3,
-  ownTouch: 0.005,
-  crossNet: 0.01,
+  match: 0,
+  ownTouch: 0,
+  crossNet: 0,
 });
 
 export const ACTIONS = Object.freeze(

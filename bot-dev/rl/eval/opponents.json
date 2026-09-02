@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "opponents": [
+    {
+      "id": "lion_v1",
+      "familyId": "lion_eating_bank",
+      "kind": "javascript",
+      "path": "../../../Lion_Eating_Bank_v1.js",
+      "sha256Normalized": "0e7de2ef8d9ee0b159791a88f972ca0e79e70e79332d4fc99ba2663b6da765f6",
+      "exposure": ["train"]
+    },
+    {
+      "id": "lion_v2",
+      "familyId": "lion_eating_bank",
+      "kind": "javascript",
+      "path": "../../../Lion_Eating_Bank_v2.js",
+      "sha256Normalized": "60ab57d27ac6b342de5a081352e38161c993a18c3cac41353372d9d0c5fc185b",
+      "exposure": ["train"]
+    },
+    {
+      "id": "lion_v3",
+      "familyId": "lion_eating_bank",
+      "kind": "javascript",
+      "path": "../../../Lion_Eating_Bank_v3.js",
+      "sha256Normalized": "a7c354f35aff69ba8e5fa62f88141e971f5cbd229d8d2cd21da5ca26ec85e6e9",
+      "exposure": ["train"]
+    },
+    {
+      "id": "lion_v4",
+      "familyId": "lion_eating_bank",
+      "kind": "javascript",
+      "path": "../../../Lion_Eating_Bank_v4.js",
+      "sha256Normalized": "408bf16e4f986f893a4a5dabc749d7d494657a14811544eddcbe82c9e58bc17f",
+      "benchmarkOnly": true,
+      "exposure": ["teacher", "benchmark"]
+    },
+    {
+      "id": "builtin",
+      "familyId": "production_builtin_ai",
+      "kind": "builtin",
+      "sha256Normalized": "d61510d93e455890f3931833a89c9a102f3d8f743a916b126699307e4eddd194",
+      "exposure": ["validation"]
+    },
+    {
+      "id": "fixed_neutral",
+      "familyId": "fixed_neutral",
+      "kind": "fixed",
+      "policy": "neutral",
+      "exposure": ["train"]
+    },
+    {
+      "id": "fixed_chase",
+      "familyId": "fixed_chase",
+      "kind": "fixed",
+      "policy": "chase",
+      "exposure": ["validation"]
+    }
+  ]
+}

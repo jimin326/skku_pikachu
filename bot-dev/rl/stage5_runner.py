@@ -248,9 +248,13 @@ def trainer_command(active: dict, phase: dict, args, remaining_minutes: float) -
         str(args.log_every),
         "--max-wall-minutes",
         str(max(0.05, remaining_minutes)),
+        "--device",
+        args.device,
     ]
     if latest.exists():
         command.extend(["--resume", str(latest)])
+    if args.recovery_dir:
+        command.extend(["--recovery-dir", str(Path(args.recovery_dir) / active["name"])])
     return command
 
 
@@ -421,6 +425,8 @@ def parse_args():
     parser.add_argument("--max-retries", type=int, default=3)
     parser.add_argument("--max-trials", type=int, default=0)
     parser.add_argument("--target-match-win-rate", type=float, default=0.5)
+    parser.add_argument("--device", default="auto")
+    parser.add_argument("--recovery-dir", default="")
     parser.add_argument("--run-dir", type=Path, default=None)
     parser.add_argument("--new-run", action="store_true")
     args = parser.parse_args()

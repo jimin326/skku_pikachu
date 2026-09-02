@@ -61,9 +61,52 @@ export function loadFrozenVictim(victim = FROZEN_VICTIM) {
     );
   }
   const source = fs.readFileSync(victim.path, 'utf8');
-  const decide = new Function(`${source}\n;return decide;`)();
+  const quietConsole = { log() {}, warn() {}, error() {} };
+  const decide = new Function('console', `${source}\n;return decide;`)(quietConsole);
   if (typeof decide !== 'function') throw new Error(`decide() not found in ${victim.path}`);
-  return { decide, hash: actualHash };
+  return { decide, hash: actualHash, builtin: false };
+}
+
+class BuiltinInput extends PikaUserInput {
+  constructor() {
+    super();
+    this.tick = 0;
+  }
+  getInput() { this.tick++; }
+}
+
+function sameOpponent(left, right) {
+  return !!left && !!right && left.id === right.id && left.kind === right.kind &&
+    (left.sha256 || left.sha256Normalized || null) === (right.sha256 || right.sha256Normalized || null);
+}
+
+export function loadOpponent(spec = FROZEN_VICTIM) {
+  const normalized = {
+    id: spec.id || path.basename(spec.path || 'opponent'),
+    familyId: spec.familyId || spec.id || 'unknown',
+    kind: spec.kind || 'javascript',
+    path: spec.path ? path.resolve(spec.path) : null,
+    sha256: spec.sha256 || spec.sha256Normalized || null,
+    policy: spec.policy || null,
+  };
+  if (normalized.kind === 'builtin') {
+    return { spec: normalized, input: new BuiltinInput(), decide: null, hash: normalized.sha256, builtin: true };
+  }
+  if (normalized.kind === 'fixed') {
+    let decide;
+    if (normalized.policy === 'neutral') decide = () => ({ x: 0, y: 0, hit: 0 });
+    else if (normalized.policy === 'chase') {
+      decide = (snapshot) => {
+        const dx = snapshot.ball.x - snapshot.self.x;
+        const close = Math.abs(dx) < 64 && Math.abs(snapshot.ball.y - snapshot.self.y) < 96;
+        const airborne = snapshot.self.y < 244 || snapshot.self.state !== 0;
+        return { x: dx < -4 ? -1 : dx > 4 ? 1 : 0, y: !airborne && close ? -1 : 0, hit: airborne && close ? 1 : 0 };
+      };
+    } else throw new Error(`Unknown fixed opponent policy: ${normalized.policy}`);
+    return { spec: normalized, decide, hash: null, builtin: false };
+  }
+  const loaded = loadFrozenVictim({ path: normalized.path, sha256: normalized.sha256 });
+  return { ...loaded, spec: normalized };
 }
 
 export function canonicalizeSnapshot(snapshot) {
@@ -101,8 +144,21 @@ export function canonicalizeSnapshot(snapshot) {
   };
 }
 
+export function canonicalizeAction(action, side) {
+  return {
+    x: side === 'RIGHT' && action.x !== 0 ? -action.x : action.x,
+    y: action.y,
+    hit: action.hit,
+  };
+}
+
+export function globalizeAction(action, side) {
+  return canonicalizeAction(action, side);
+}
+
 export function encodeFrame(snapshot, appliedAction, winningScore) {
   const s = canonicalizeSnapshot(snapshot);
+  const canonicalAction = canonicalizeAction(appliedAction, snapshot.side);
   const features = [
     s.ball.x / NET_X - 1,
     clamp(s.ball.y / BALL_GROUND_Y, -0.25, 1.25),
@@ -124,9 +180,9 @@ export function encodeFrame(snapshot, appliedAction, winningScore) {
     clamp(s.meta.score.opp / winningScore, 0, 1),
     s.meta.selfServe ? 1 : 0,
     clamp(s.meta.rallyFrameCount / 300, 0, 2),
-    appliedAction.x,
-    appliedAction.y,
-    appliedAction.hit,
+    canonicalAction.x,
+    canonicalAction.y,
+    canonicalAction.hit,
   ];
   if (features.length !== FEATURES_PER_FRAME) {
     throw new Error(`Feature schema mismatch: ${features.length}`);
@@ -218,6 +274,8 @@ export class RedTeamEnv {
     this.previousBallOnAgentHalf = null;
     this.lastRewardCursor = { rallies: 0, agentTouches: 0, crossings: 0 };
     this.victimHash = null;
+    this.opponentSpec = null;
+    this.opponentBuiltin = false;
     this.episodeDecisionStart = 0;
     this.rallyMetadata = [];
     this.activeRallyId = null;
@@ -243,12 +301,15 @@ export class RedTeamEnv {
     return action;
   }
 
-  reset({ seed, side = 'random', preserveBotState = false } = {}) {
+  reset({ seed, side = 'random', opponent = null, preserveBotState = false } = {}) {
     if (preserveBotState && (!this.agentInput || !this.victimInput)) {
       throw new Error('preserveBotState requires an existing completed episode');
     }
     if (preserveBotState && this.game && !this.game.finished) {
       throw new Error('Cannot preserve bot state from an unfinished episode');
+    }
+    if (preserveBotState && opponent && !sameOpponent(this.opponentSpec, opponent)) {
+      throw new Error('A persistent bot series cannot change opponents');
     }
     if (!preserveBotState && seed === undefined) seed = 1;
     if (side !== 'random' && !VALID_SIDE.has(side)) {
@@ -270,13 +331,15 @@ export class RedTeamEnv {
       this.agentIndex = this.agentSide === 'LEFT' ? 0 : 1;
       this.victimIndex = 1 - this.agentIndex;
       this.rng = makeSeededRng(this.seed);
-      const loaded = loadFrozenVictim(this.victim);
+      const loaded = loadOpponent(opponent || this.config.opponent || this.victim);
+      this.opponentSpec = loaded.spec;
+      this.opponentBuiltin = loaded.builtin;
       this.victimHash = loaded.hash;
       this.agentInput = new StepInput(this.agentSide, this.config.latencyFrames);
       const victimSide = this.agentSide === 'LEFT' ? 'RIGHT' : 'LEFT';
-      this.victimInput = new BotInput(victimSide, loaded.decide, {
-        latency: this.config.latencyFrames,
-      });
+      this.victimInput = loaded.builtin
+        ? loaded.input
+        : new BotInput(victimSide, loaded.decide, { latency: this.config.latencyFrames });
     }
     setCustomRng(this.rng);
     this.terminated = false;
@@ -288,13 +351,17 @@ export class RedTeamEnv {
     this.rallyMetadata = [];
     this.activeRallyId = null;
     this.matchRewardEmitted = false;
+    const preservedPhysics = preserveBotState ? this.game.physics : null;
     this.game = new RealGame({
       serveRule: this.config.serveRule,
       winningScore: this.config.winningScore,
       readySnapshots: true,
+      physics: preservedPhysics,
     });
     this.game.inputs[this.agentIndex] = this.agentInput;
     this.game.inputs[this.victimIndex] = this.victimInput;
+    this.game.physics.player1.isComputer = this.victimIndex === 0 && this.opponentBuiltin;
+    this.game.physics.player2.isComputer = this.victimIndex === 1 && this.opponentBuiltin;
     this.episodeDecisionStart = this.agentInput.decisions;
     this.lastRewardCursor = { rallies: 0, agentTouches: 0, crossings: 0 };
 
@@ -314,9 +381,11 @@ export class RedTeamEnv {
     if (!this.game) throw new Error('Call reset() before step()');
     if (this.terminated || this.truncated) throw new Error('Episode is over; call reset()');
     const decoded = this.decodeAction(action);
+    const globalAction = globalizeAction(decoded, this.agentSide);
     setCustomRng(this.rng);
     const actionContext = this.#decisionContext();
-    this.agentInput.submit(decoded);
+    const gameEndedBefore = this.game.gameEnded;
+    this.agentInput.submit(globalAction);
     const scoresBefore = [...this.game.scores];
     const cursorBefore = { ...this.lastRewardCursor };
 
@@ -343,6 +412,8 @@ export class RedTeamEnv {
         ...this.#info(),
         reward: rewardParts,
         action: cloneAction(decoded),
+        globalAction: cloneAction(globalAction),
+        gameEndedThisStep: !gameEndedBefore && this.game.gameEnded,
         lossMask: actionContext.trainable ? 1 : 0,
         actionRally: actionContext,
         decision: this.terminated || this.truncated ? null : this.#decisionContext(),
@@ -395,7 +466,7 @@ export class RedTeamEnv {
     const inRound = this.game && this.game.state === 'round' && this.game.cur !== null;
     const meta = inRound ? this.rallyMetadata[this.game.rallies.length] : null;
     return meta
-      ? { ...meta, trainable: !meta.thunder }
+      ? { ...meta, trainable: !this.game.gameEnded }
       : {
         id: null,
         victimServe: false,
@@ -515,8 +586,13 @@ export class RedTeamEnv {
       rallies: this.game.rallies.length,
       rallyStats: this.#rallyStats(),
       state: this.game.state,
-      victimPath: path.resolve(this.victim.path),
+      victimPath: this.opponentSpec.path,
       victimSha256: this.victimHash,
+      opponentId: this.opponentSpec.id,
+      opponentFamilyId: this.opponentSpec.familyId,
+      opponentKind: this.opponentSpec.kind,
+      opponentPath: this.opponentSpec.path,
+      opponentSha256: this.victimHash,
       tickFrameGroupSize: 3,
       latencyFrames: this.config.latencyFrames,
       observationSize: this.observationSize,

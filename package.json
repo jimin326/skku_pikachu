@@ -7,6 +7,8 @@
   },
   "scripts": {
     "test:physics": "node bot-dev/rl/physics_clamp_smoke.mjs",
-    "test:env": "node bot-dev/rl/env_smoke.mjs"
+    "test:env": "node bot-dev/rl/env_smoke.mjs",
+    "test:differential": "node bot-dev/rl/production_differential.mjs",
+    "setup:engine": "node scripts/setup_rl_engine.mjs"
   }
 }

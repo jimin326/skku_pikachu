@@ -3,6 +3,7 @@ import { ACTIONS, FEATURES_PER_FRAME, FROZEN_VICTIM } from './config.mjs';
 import {
   RedTeamEnv,
   canonicalizeSnapshot,
+  canonicalizeAction,
   hashFile,
   makeSeededRng,
 } from './redteam_env.mjs';
@@ -38,17 +39,20 @@ function runEnv(seed, side) {
   const rewardParts = { point: 0, match: 0, touch: 0, crossing: 0 };
   const transitionContexts = [];
   let steps = 0;
+  let gameEndSignals = 0;
   while (true) {
     const snapshot = env.getRawSnapshot();
-    const result = env.step(scriptedDecide(snapshot));
+    const result = env.step(canonicalizeAction(scriptedDecide(snapshot), side));
     transitionContexts.push({ ...result.info.actionRally, lossMask: result.info.lossMask });
     totalReward += result.reward;
     for (const key of Object.keys(rewardParts)) rewardParts[key] += result.info.reward[key];
     steps++;
+    gameEndSignals += result.info.gameEndedThisStep ? 1 : 0;
     if (result.terminated || result.truncated) break;
     assert.equal(result.observation.length, env.observationSize);
   }
   assert.equal(env.truncated, false);
+  assert.equal(gameEndSignals, 1, 'match-point terminal signal must be emitted exactly once');
   const agentIndex = side === 'LEFT' ? 0 : 1;
   assert.equal(
     rewardParts.point,
@@ -57,8 +61,8 @@ function runEnv(seed, side) {
   );
   assert.equal(
     rewardParts.match,
-    env.game.scores[agentIndex] > env.game.scores[1 - agentIndex] ? 3 : -3,
-    'match reward must be emitted exactly once'
+    0,
+    'default reward must not duplicate terminal point reward'
   );
   const summedParts = Object.values(rewardParts).reduce((sum, value) => sum + value, 0);
   assert.ok(Math.abs(totalReward - summedParts) < 1e-9, 'reward parts must sum to total reward');
@@ -69,9 +73,7 @@ function runEnv(seed, side) {
         context.trainable ? 1 : 0,
         'READY must remain trainable while post-game transitions are masked'
       );
-    } else {
-      assert.equal(context.lossMask, context.thunder ? 0 : 1, 'thunder loss mask mismatch');
-    }
+    } else assert.equal(context.lossMask, context.trainable ? 1 : 0);
   }
   for (let i = 0; i + 1 < env.game.rallies.length; i++) {
     const expected = (
@@ -130,6 +132,13 @@ assert.equal(ACTIONS.length, 18);
 assert.equal(new Set(ACTIONS.map((a) => `${a.x},${a.y},${a.hit}`)).size, 18);
 assert.equal(hashFile(FROZEN_VICTIM.path), FROZEN_VICTIM.sha256);
 testCanonicalMirror();
+assert.deepEqual(canonicalizeAction({ x: -1, y: 1, hit: 1 }, 'RIGHT'), { x: 1, y: 1, hit: 1 });
+{
+  const rightEnv = new RedTeamEnv({ winningScore: 1 });
+  rightEnv.reset({ seed: 9191, side: 'RIGHT' });
+  const moved = rightEnv.step({ x: 1, y: 0, hit: 0 });
+  assert.equal(moved.info.globalAction.x, -1, 'RIGHT canonical +x must become global -x');
+}
 
 for (const [seed, side] of [[12345, 'LEFT'], [20260902, 'RIGHT']]) {
   const first = runEnv(seed, side);
@@ -151,9 +160,11 @@ for (const [seed, side] of [[12345, 'LEFT'], [20260902, 'RIGHT']]) {
     result = env.step(scriptedDecide(env.getRawSnapshot()));
   }
   const victimInstance = env.victimInput;
+  const physicsInstance = env.game.physics;
   const tickAfterFirstGame = victimInstance.tick;
   result = env.reset({ preserveBotState: true, side: 'LEFT' });
   assert.equal(env.victimInput, victimInstance, 'victim Worker state must persist within a seed/side series');
+  assert.equal(env.game.physics, physicsInstance, 'production physics object must persist within a series');
   assert.ok(env.victimInput.tick > tickAfterFirstGame, 'victim tick phase must continue across games');
   while (!result.terminated && !result.truncated) {
     result = env.step(scriptedDecide(env.getRawSnapshot()));

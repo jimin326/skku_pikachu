@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "name": "train",
+  "opponents": ["lion_v1", "lion_v2", "lion_v3", "fixed_neutral"],
+  "seeds": [11003, 11027, 11047, 11071, 11113, 11131, 11149, 11173]
+}

@@ -58,8 +58,8 @@ export class BotInput extends PikaUserInput {
 }
 
 export class RealGame {
-  constructor({ serveRule = 'random', winningScore = 10, readySnapshots = true } = {}) {
-    this.physics = new PikaPhysics(false, false);
+  constructor({ serveRule = 'random', winningScore = 10, readySnapshots = true, physics = null } = {}) {
+    this.physics = physics || new PikaPhysics(false, false);
     this.scores = [0, 0]; this.isPlayer2Serve = false; this.serveRule = serveRule; this.winningScore = winningScore;
     this.readySnapshots = readySnapshots;
     this.frameNo = 0; this.roundFrames = 0; this.inputs = [null, null]; this.installed = false;
@@ -99,6 +99,8 @@ export class RealGame {
       this.gameEnded = false; this.roundEnded = false;
       this.isPlayer2Serve = this.decideNextServe(false);
       this.scores[0] = 0; this.scores[1] = 0;
+      this.physics.player1.gameEnded = false; this.physics.player1.isWinner = false;
+      this.physics.player2.gameEnded = false; this.physics.player2.isWinner = false;
       this.physics.player1.initializeForNewRound(); this.physics.player2.initializeForNewRound();
       this.physics.ball.initializeForNewRound(this.isPlayer2Serve);
     }
@@ -112,6 +114,7 @@ export class RealGame {
   }
   round() {
     const ua = [this.inputs[0] || this.nullInput, this.inputs[1] || this.nullInput];
+    const pressedPowerHit = ua[0].powerHit === 1 || ua[1].powerHit === 1;
     const touched = this.physics.runEngineForNextFrame(ua);
     this.roundFrames++;
     if (this.cur) {
@@ -121,7 +124,9 @@ export class RealGame {
     }
     if (this.gameEnded) {
       this.frameCounter++;
-      if (this.frameCounter >= this.frameTotal.gameEnd) { this.frameCounter = 0; this.state = 'intro'; this.finished = true; }
+      if (this.frameCounter >= this.frameTotal.gameEnd || (this.frameCounter >= 70 && pressedPowerHit)) {
+        this.frameCounter = 0; this.state = 'intro'; this.finished = true;
+      }
       return;
     }
     if (touched && !this.roundEnded && !this.gameEnded) {
@@ -129,7 +134,7 @@ export class RealGame {
       this.endRally(p2Won ? 1 : 0, 'ground');
       this.isPlayer2Serve = this.decideNextServe(p2Won);
       this.scores[p2Won ? 1 : 0] += 1;
-      if (this.scores[p2Won ? 1 : 0] >= this.winningScore) this.gameEnded = true;
+      if (this.scores[p2Won ? 1 : 0] >= this.winningScore) this.markGameEnded(p2Won ? 1 : 0);
       if (!this.gameEnded) this.slowMotionFramesLeft = 6;
       this.roundEnded = true;
     }
@@ -153,6 +158,13 @@ export class RealGame {
     this.cur.winner = winnerIdx; this.cur.how = how; this.cur.frames = this.roundFrames; this.cur.landX = this.physics.ball.x | 0;
     this.rallies.push(this.cur); this.cur = null;
   }
+  markGameEnded(winnerIdx) {
+    this.gameEnded = true;
+    this.physics.player1.isWinner = winnerIdx === 0;
+    this.physics.player2.isWinner = winnerIdx === 1;
+    this.physics.player1.gameEnded = true;
+    this.physics.player2.gameEnded = true;
+  }
   /* rules/touchLimit.js + operator.awardPoint + forceNextRound 재현 */
   observeTouchLimit() {
     const tl = this.tl;
@@ -173,13 +185,20 @@ export class RealGame {
         if (tl.count >= 5) {
           const opp = i === 0 ? 1 : 0;
           tl.count = 0; tl.last = null; tl.prevFlags = [false, false];
-          if (this.isDuringMatch() && !this.gameEnded && !this.roundEnded) {
-            this.endRally(opp, 'touchLimit');
-            this.scores[opp] += 1;
-            if (this.scores[opp] >= this.winningScore) { this.gameEnded = true; return; }
-            this.isPlayer2Serve = this.decideNextServe(opp === 1);
+          this.endRally(opp, 'touchLimit');
+          this.scores[opp] = Math.min(this.winningScore, Math.max(0, this.scores[opp] + 1));
+          const ended = this.scores[0] >= this.winningScore || this.scores[1] >= this.winningScore;
+          if (ended !== this.gameEnded) {
+            this.gameEnded = ended;
+            this.physics.player1.gameEnded = ended; this.physics.player2.gameEnded = ended;
+            this.physics.player1.isWinner = ended && this.scores[0] >= this.winningScore;
+            this.physics.player2.isWinner = ended && this.scores[1] >= this.winningScore;
+            this.frameCounter = 0;
+          }
+          const nextServe = this.decideNextServe(opp === 1);
+          if (this.isDuringMatch() && !this.gameEnded) {
+            this.isPlayer2Serve = nextServe;
             this.roundEnded = true; this.slowMotionFramesLeft = 0; this.frameCounter = 0; this.state = 'afterEndOfRound';
-            return;
           }
         }
       }

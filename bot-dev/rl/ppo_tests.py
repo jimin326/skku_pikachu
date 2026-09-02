@@ -6,7 +6,7 @@ import numpy as np
 import torch
 
 from node_bridge import ParallelNodeVectorEnv
-from ppo_train import ActorCritic, compute_gae
+from ppo_train import ActorCritic, compute_gae, match_terminal_flags
 
 
 def test_gae() -> None:
@@ -45,7 +45,16 @@ def test_model_and_bridge() -> None:
         assert all(info["lossMask"] in (0, 1) for info in step_infos)
 
 
+def test_point_only_terminal_signal() -> None:
+    flags = match_terminal_flags([
+        {"reward": {"match": 0.0}, "gameEndedThisStep": False},
+        {"reward": {"match": 0.0}, "gameEndedThisStep": True},
+    ])
+    assert flags.tolist() == [False, True]
+
+
 if __name__ == "__main__":
     test_gae()
     test_model_and_bridge()
+    test_point_only_terminal_signal()
     print("ppo tests PASS")

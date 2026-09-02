@@ -1,0 +1,24 @@
+{
+  "repository": "https://github.com/SKKU-x-HYU-SW-Competition/leonyi-volleyball.git",
+  "commit": "1f3cecb90aca174ffc42ac6be4c384cc725d9e91",
+  "runtimeFiles": [
+    "src/resources/js/physics.js",
+    "src/resources/js/rand.js",
+    "src/resources/js/bot/botContract.js"
+  ],
+  "files": {
+    "src/resources/js/physics.js": "d61510d93e455890f3931833a89c9a102f3d8f743a916b126699307e4eddd194",
+    "src/resources/js/rand.js": "056a6f6ed4a826a3b8e2b3fca27927e88cdf1f1cce54260059b16a46b9f0dfa8",
+    "src/resources/js/bot/botContract.js": "580d1ccec58a8a695fada3336fd10683e6d968bddb8d11a0448fac5d569d5e3a",
+    "src/resources/js/bot/botInput.js": "34ec2dba22c681f571f137bd261faa30aabbf9735ea941513120256b3f1ef5f4",
+    "src/resources/js/bot/botWorker.js": "a3430b8335c611b6f203b39793de2415cdba875313844ae41cd1b7ef8d482ff9",
+    "src/resources/js/pikavolley.js": "0e57cdee18959e3ed6c1c90cdad9a728e205bd6b20ba309bd180715af5d54018",
+    "src/resources/js/rules/touchLimit.js": "f3b0cb9eb0d083036ae18aacdc9314e9d486c0918538ce7596077dcbebcf8307",
+    "src/resources/js/operator/console.js": "92d975c622806dc7734e0b0263550f48532f1d602d3e796a7947fa10df44a3bd",
+    "src/resources/js/bot/botRegistry.js": "694ea49f8505f5e24f7dff2abccc91d1d56897b473c720a1a5fa4673f6f4c374",
+    "src/resources/js/bot/botWorkerPython.js": "dac3fcace8916763177540bd4975d75226683835e6289664d888a60818df606c",
+    "src/resources/js/bot/nullInput.js": "457927686af62b37cf2afa650226cf81220a32a4c2b6686d0f44c5ebde473a4b",
+    "src/resources/js/bot/testSetup.js": "ad66596850801d224906544b5b210b1c502e284d037ae9485db8435c08024ac2",
+    "src/resources/js/main.js": "4e29ce940d3254076245a2ec1326290d48af1f3e4149bed506119560030b26f1"
+  }
+}

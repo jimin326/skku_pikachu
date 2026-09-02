@@ -1,4 +1,6 @@
-# Red-team RL environment
+# Legacy red-team harness
+
+이 문서는 이전 v1 red-team 실험의 상세 기록이다. 현재 v4 기반 robust 시스템의 계약과 실행법은 [ROBUST_RL.md](ROBUST_RL.md), 승격 기준은 [ACCEPTANCE.md](ACCEPTANCE.md)를 우선한다. 아래의 thunder masking, 단일 victim, 1·3점 curriculum, 50% target은 robust SOTA 판정 기준이 아니다.
 
 This directory trains a separate opponent against the frozen
 `Lion_Eating_Bank_v1.js`. It never edits or fine-tunes the

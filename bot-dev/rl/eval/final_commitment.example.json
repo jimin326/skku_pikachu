@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "fill-before-final",
+  "candidateSha256Normalized": "fill-after-validation-freeze",
+  "manifestSha256": "hash-of-externally-held-final-split",
+  "expectedBlocks": "opponents-times-seeds"
+}

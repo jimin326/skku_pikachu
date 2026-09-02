@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "name": "validation",
+  "opponents": ["builtin", "fixed_chase"],
+  "benchmarkOpponents": ["lion_v4"],
+  "seeds": [21001, 21023, 21059, 21089, 21101, 21139, 21157, 21191]
+}
