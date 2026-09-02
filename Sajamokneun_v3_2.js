@@ -70,6 +70,7 @@ function finishSkillAction(s, a, left) {
 // Model-based search bot. Single file, no imports. Ports physics.js exactly.
 // ============================================================================
 var GW=432, HW=216, PHL=32, PGY=244, BGY=252, NPHW=25, NTT=176, NTB=192;
+var BALL_MAX_Y_VELOCITY=40;
 var SELF_REACH_LAG=12; // @param:SELF_REACH_LAG — bot/params.json의 제출용 인라인 사본
 var OPP_REACH_LAG=0;  // @param:OPP_REACH_LAG — bot/params.json의 제출용 인라인 사본
 var STATE_AWARE_REACH=0; // @param:STATE_AWARE_REACH
@@ -90,8 +91,15 @@ var BLOCK_NET_DISTANCE=64, BLOCK_POST_OFFSET=40;
 // +0 x +1 y +2 vy +3 st +4 fn +5 dly +6 lie +7 dd +8 coll
 var SZ=22, PL=4, PR=13;
 
+function clampBallYVelocity(v){
+  return v>BALL_MAX_Y_VELOCITY ? BALL_MAX_Y_VELOCITY
+       : (v<-BALL_MAX_Y_VELOCITY ? -BALL_MAX_Y_VELOCITY : v);
+}
+
 function stepLean(s, ax,ay,ah, bx_,by_,bh,touch,ME,probe){
   var bx=s[0],by=s[1],bvx=s[2],bvy=s[3], ground=0;
+  // physics.js clamps at the start of every world-physics frame.
+  bvy=clampBallYVelocity(bvy);
   var ballWasLeft=bx<HW;
   var fx=bx+bvx; if(fx<0||fx>GW) bvx=-bvx;
   if(by+bvy<0) bvy=1;
@@ -154,6 +162,8 @@ var LAND=new Int32Array(3);
 function landing(bx,by,bvx,bvy){
   var n=0;LAND[2]=0;
   while(n<300){
+    // Keep free-flight prediction identical to the real world step.
+    bvy=clampBallYVelocity(bvy);
     var fx=bx+bvx; if(fx<0||fx>GW) bvx=-bvx;
     if(by+bvy<0) bvy=1;
     var d=bx-HW;
@@ -361,7 +371,9 @@ function chooseShot(s0,ME,OP,isR,frameGroup,t0){
             var speed=(sx<0?-sx:sx)+1;
             var av=SHOT_PROBE.bvy<0?-SHOT_PROBE.bvy:SHOT_PROBE.bvy;if(av<15)av=15;
             SHOT_STATE[2]=SHOT_PROBE.bx<HW?speed*10:-speed*10;
-            SHOT_STATE[3]=av*sy*2;contact=1;
+            // expectedLandingPointXWhenPowerHit applies the same cap before
+            // advancing the first predicted frame.
+            SHOT_STATE[3]=clampBallYVelocity(av*sy*2);contact=1;
           }
           break;
         }
@@ -532,8 +544,10 @@ function evaluate(s, ME, OP, isR, myNear, myFar, ground, depth,mt,ot,blockMode){
     if(OPP_STATE_REACH){oppReachInterval(s,OP,isR,lpf);slack=intervalSlack(lpx,OPP_REACH[0],OPP_REACH[1]);}
     else {var oneed=lpx-s[OP];if(oneed<0)oneed=-oneed;var oppReach=6*(lpf-OPP_REACH_LAG)+32;slack=oneed-oppReach;}
     sc += slack>0 ? (1800 + slack*12) : slack*9;
-    // prefer deep/steep balls
-    sc += (s[3]>0? s[3]*3 : 0);
+    // Prefer steep balls, but never reward speed discarded by physics.js on
+    // the next frame (notably the old extreme-downward-speed net exploit).
+    var effectiveVy=clampBallYVelocity(s[3]);
+    sc += (effectiveVy>0? effectiveVy*3 : 0);
   }
   // positioning: be near own court centre-ish / under future ball
   var post = landsMine ? lpx : (myNear+myFar)/2;
