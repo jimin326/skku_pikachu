@@ -210,6 +210,7 @@ var GROUND_WIDTH = 432;
 var NET_X = 216;
 var PLAYER_GROUND_Y = 244;
 var BALL_GROUND_Y = 252;
+var BALL_MAX_Y_VELOCITY = 40;
 var PLAYER_HALF = 32;
 var NET_HALF_W = 25;
 var NET_TOP_Y = 176;
@@ -280,6 +281,7 @@ function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
 function idiv(a, b) { return Math.floor(a / b); }
 
 function stepBall(b) {
+  b.yV = clamp(b.yV, -BALL_MAX_Y_VELOCITY, BALL_MAX_Y_VELOCITY);
   var fx = b.x + b.xV;
   if (fx < 0 || fx > GROUND_WIDTH) b.xV = -b.xV;
   if (b.y + b.yV < 0) b.yV = 1;
