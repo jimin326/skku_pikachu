@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
@@ -10,10 +11,12 @@ import { RedTeamEnv } from '../redteam_env.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(here, '..', '..', '..');
 const engineManifest = JSON.parse(fs.readFileSync(path.resolve(here, '..', 'engine_manifest.json'), 'utf8'));
+assert.equal(engineManifest.hashMode, 'sha256-lf-v1', 'unsupported engine manifest hash mode');
 
 for (const relativePath of engineManifest.runtimeFiles) {
   const filename = path.join(repositoryRoot, ...relativePath.split('/'));
-  const actual = crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex');
+  const normalized = fs.readFileSync(filename, 'utf8').replace(/\r\n/g, '\n');
+  const actual = crypto.createHash('sha256').update(normalized, 'utf8').digest('hex');
   if (actual !== engineManifest.files[relativePath]) throw new Error(`runtime engine hash mismatch: ${relativePath}`);
 }
 

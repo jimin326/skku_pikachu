@@ -12,6 +12,7 @@ import { makeSeededRng } from '../redteam_env.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(here, '..', '..', '..');
 const engineManifest = JSON.parse(fs.readFileSync(path.resolve(here, '..', 'engine_manifest.json'), 'utf8'));
+assert.equal(engineManifest.hashMode, 'sha256-lf-v1', 'unsupported engine manifest hash mode');
 
 class BuiltinInput extends PikaUserInput {
   getInput() {}
@@ -25,13 +26,9 @@ function normalizedHash(filename) {
   return crypto.createHash('sha256').update(normalizedSource(filename), 'utf8').digest('hex');
 }
 
-function rawHash(filename) {
-  return crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex');
-}
-
 for (const relativePath of engineManifest.runtimeFiles) {
   const filename = path.join(repositoryRoot, ...relativePath.split('/'));
-  assert.equal(rawHash(filename), engineManifest.files[relativePath], `runtime engine hash mismatch: ${relativePath}`);
+  assert.equal(normalizedHash(filename), engineManifest.files[relativePath], `runtime engine hash mismatch: ${relativePath}`);
 }
 
 function loadJavascript(filename, expectedHash = null) {

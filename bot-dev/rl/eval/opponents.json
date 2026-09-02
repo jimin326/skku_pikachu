@@ -38,7 +38,7 @@
       "id": "builtin",
       "familyId": "production_builtin_ai",
       "kind": "builtin",
-      "sha256Normalized": "d61510d93e455890f3931833a89c9a102f3d8f743a916b126699307e4eddd194",
+      "sha256Normalized": "8c7a6772982f5f7224bd87a9cee10b26558ceda9a2320805ffa41bb4c4750fca",
       "exposure": ["validation"]
     },
     {

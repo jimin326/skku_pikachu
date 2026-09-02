@@ -11,6 +11,7 @@ import { RealGame } from '../sim_real.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(here, '..', '..');
 const manifest = JSON.parse(fs.readFileSync(path.join(here, 'engine_manifest.json'), 'utf8'));
+assert.equal(manifest.hashMode, 'sha256-lf-v1', 'unsupported engine manifest hash mode');
 
 function parseGameRoot() {
   const index = process.argv.indexOf('--game-root');
@@ -21,19 +22,20 @@ function parseGameRoot() {
   return path.resolve(candidate);
 }
 
-function sha256(filename) {
-  return crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex');
+function normalizedSha256(filename) {
+  const normalized = fs.readFileSync(filename, 'utf8').replace(/\r\n/g, '\n');
+  return crypto.createHash('sha256').update(normalized, 'utf8').digest('hex');
 }
 
 function verifyOfficialSources(gameRoot) {
   for (const [relativePath, expected] of Object.entries(manifest.files)) {
     const filename = path.join(gameRoot, ...relativePath.split('/'));
-    assert.equal(sha256(filename), expected, `official source hash mismatch: ${relativePath}`);
+    assert.equal(normalizedSha256(filename), expected, `official source hash mismatch: ${relativePath}`);
   }
   for (const relativePath of manifest.runtimeFiles) {
     const filename = path.join(repositoryRoot, ...relativePath.split('/'));
     assert.equal(
-      sha256(filename),
+      normalizedSha256(filename),
       manifest.files[relativePath],
       `copied runtime hash mismatch: ${relativePath}`,
     );

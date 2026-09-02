@@ -9,6 +9,7 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 const gameRoot = process.argv[2] ? path.resolve(process.argv[2]) : null;
 if (!gameRoot) throw new Error('usage: node scripts/setup_rl_engine.mjs <official-game-checkout>');
 const manifest = JSON.parse(fs.readFileSync(path.join(repositoryRoot, 'bot-dev/rl/engine_manifest.json'), 'utf8'));
+assert.equal(manifest.hashMode, 'sha256-lf-v1', 'unsupported engine manifest hash mode');
 const commit = execFileSync(
   'git',
   ['-c', `safe.directory=${gameRoot}`, '-C', gameRoot, 'rev-parse', 'HEAD'],
@@ -17,7 +18,8 @@ const commit = execFileSync(
 assert.equal(commit, manifest.commit, 'official engine commit mismatch');
 
 function hash(filename) {
-  return crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex');
+  const normalized = fs.readFileSync(filename, 'utf8').replace(/\r\n/g, '\n');
+  return crypto.createHash('sha256').update(normalized, 'utf8').digest('hex');
 }
 
 for (const [relativePath, expected] of Object.entries(manifest.files)) {

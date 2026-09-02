@@ -1,24 +1,25 @@
 {
   "repository": "https://github.com/SKKU-x-HYU-SW-Competition/leonyi-volleyball.git",
   "commit": "1f3cecb90aca174ffc42ac6be4c384cc725d9e91",
+  "hashMode": "sha256-lf-v1",
   "runtimeFiles": [
     "src/resources/js/physics.js",
     "src/resources/js/rand.js",
     "src/resources/js/bot/botContract.js"
   ],
   "files": {
-    "src/resources/js/physics.js": "d61510d93e455890f3931833a89c9a102f3d8f743a916b126699307e4eddd194",
-    "src/resources/js/rand.js": "056a6f6ed4a826a3b8e2b3fca27927e88cdf1f1cce54260059b16a46b9f0dfa8",
-    "src/resources/js/bot/botContract.js": "580d1ccec58a8a695fada3336fd10683e6d968bddb8d11a0448fac5d569d5e3a",
-    "src/resources/js/bot/botInput.js": "34ec2dba22c681f571f137bd261faa30aabbf9735ea941513120256b3f1ef5f4",
-    "src/resources/js/bot/botWorker.js": "a3430b8335c611b6f203b39793de2415cdba875313844ae41cd1b7ef8d482ff9",
-    "src/resources/js/pikavolley.js": "0e57cdee18959e3ed6c1c90cdad9a728e205bd6b20ba309bd180715af5d54018",
-    "src/resources/js/rules/touchLimit.js": "f3b0cb9eb0d083036ae18aacdc9314e9d486c0918538ce7596077dcbebcf8307",
-    "src/resources/js/operator/console.js": "92d975c622806dc7734e0b0263550f48532f1d602d3e796a7947fa10df44a3bd",
-    "src/resources/js/bot/botRegistry.js": "694ea49f8505f5e24f7dff2abccc91d1d56897b473c720a1a5fa4673f6f4c374",
-    "src/resources/js/bot/botWorkerPython.js": "dac3fcace8916763177540bd4975d75226683835e6289664d888a60818df606c",
-    "src/resources/js/bot/nullInput.js": "457927686af62b37cf2afa650226cf81220a32a4c2b6686d0f44c5ebde473a4b",
-    "src/resources/js/bot/testSetup.js": "ad66596850801d224906544b5b210b1c502e284d037ae9485db8435c08024ac2",
-    "src/resources/js/main.js": "4e29ce940d3254076245a2ec1326290d48af1f3e4149bed506119560030b26f1"
+    "src/resources/js/physics.js": "8c7a6772982f5f7224bd87a9cee10b26558ceda9a2320805ffa41bb4c4750fca",
+    "src/resources/js/rand.js": "fe21a078cefd83f67a3dbd6654782a41262b5ea163c550333ae054b069d91bec",
+    "src/resources/js/bot/botContract.js": "02a3684773159918243b07751dc589fba8a829c99eea1f745a9644830f8bb53a",
+    "src/resources/js/bot/botInput.js": "77f4b54a185f16219a912cf0f560ac39da18a4e98eb02a75c24276350b9d352e",
+    "src/resources/js/bot/botWorker.js": "a94a9baa066fb089300b1518bdc772addf1d4a9158afa352561be6433f1695f0",
+    "src/resources/js/pikavolley.js": "609b2090918fd2415c6601d7c76885ff68b70f7895a723ab52d1b987f4affcf8",
+    "src/resources/js/rules/touchLimit.js": "6518b61d003084b30301013fa7614246b4eaed64c35d6596c1c34a116c9f9a84",
+    "src/resources/js/operator/console.js": "87999d0c6c6b66ee16f90afff0178ca6b91b3c37f2362d06e7d6e90dbd2cce75",
+    "src/resources/js/bot/botRegistry.js": "4072714d76cb3789fd3649c96e9b50648d1761528cdd3325944c86614d847cfb",
+    "src/resources/js/bot/botWorkerPython.js": "13ce50b86b68b291a530bd61311d137e47ba6248d462d52fa30e9f0e466bb1f9",
+    "src/resources/js/bot/nullInput.js": "955c44a797fef35a4718651df25e875654194fe2a5c2a8de0c1479d9bfaa8153",
+    "src/resources/js/bot/testSetup.js": "16590f18591aafd45294daacfe87292ea54a4149f910f1db5f8eb8c8bdda4c6c",
+    "src/resources/js/main.js": "e844ca9fa923127e248771d901f7798d2e0cf12fc8a0408b0d4e465a3f56eb70"
   }
 }
