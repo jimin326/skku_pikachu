@@ -52,6 +52,22 @@ class PPOConfig:
     initial_model: str = ""
     recovery_dir: str = ""
     league_manifest: str = ""
+    # --- BC-preserving fine-tuning (all off by default; ablation arms) ---
+    # Frozen reference policy (e.g. the BC model). When anchor_kl_coef > 0 the
+    # loss adds anchor_kl_coef * KL(pi_anchor || pi_theta) on rollout states.
+    anchor_model: str = ""
+    anchor_kl_coef: float = 0.0
+    # Linear decay of anchor_kl_coef to anchor_kl_floor over this many updates
+    # (0 = constant coefficient).
+    anchor_kl_decay_updates: int = 0
+    anchor_kl_floor: float = 0.0
+    # Train only the value head for the first N updates so a BC-initialised
+    # actor is not updated with advantages from an untrained critic.
+    policy_freeze_updates: int = 0
+    # Non-zero: after --resume restores RNG states, re-seed every RNG with this
+    # value so a rollback to an older checkpoint does not replay the same
+    # opponent/seed schedule that already failed.
+    reseed_on_resume: int = 0
 
 
 class ActorCritic(nn.Module):
@@ -181,6 +197,38 @@ def compute_gae(
     return advantages, advantages + values
 
 
+def anchor_kl(anchor_logits: torch.Tensor, logits: torch.Tensor) -> torch.Tensor:
+    """Per-sample KL(pi_anchor || pi_theta) for categorical logits."""
+    anchor_log_probs = torch.log_softmax(anchor_logits, dim=-1)
+    log_probs = torch.log_softmax(logits, dim=-1)
+    return (anchor_log_probs.exp() * (anchor_log_probs - log_probs)).sum(dim=-1)
+
+
+def anchor_coefficient(config: "PPOConfig", local_update: int) -> float:
+    """Anchor KL coefficient for the given 1-based update within this process."""
+    if config.anchor_kl_coef <= 0:
+        return 0.0
+    if config.anchor_kl_decay_updates <= 0:
+        return float(config.anchor_kl_coef)
+    fraction = min(1.0, max(0.0, (local_update - 1) / config.anchor_kl_decay_updates))
+    return float(config.anchor_kl_coef + (config.anchor_kl_floor - config.anchor_kl_coef) * fraction)
+
+
+def load_anchor(config: "PPOConfig", observation_size: int, action_count: int, device) -> tuple["ActorCritic | None", str | None]:
+    if not config.anchor_model:
+        if config.anchor_kl_coef > 0:
+            raise ValueError("anchor_kl_coef > 0 requires --anchor-model")
+        return None, None
+    raw = Path(config.anchor_model).read_bytes()
+    saved = torch.load(config.anchor_model, map_location="cpu", weights_only=False)
+    anchor = ActorCritic(observation_size, action_count).to(device)
+    anchor.load_state_dict(saved["model"])
+    anchor.eval()
+    for parameter in anchor.parameters():
+        parameter.requires_grad_(False)
+    return anchor, hashlib.sha256(raw).hexdigest()
+
+
 def match_terminal_flags(infos) -> np.ndarray:
     """Terminate GAE at match point independently of reward shaping weights."""
     return np.asarray(
@@ -283,9 +331,23 @@ def train(config: PPOConfig) -> Path:
                 raise ValueError("resume opponent pool metadata does not match current manifests")
             if resumed.get("scheduler") is not None:
                 scheduler.load_state_dict(resumed["scheduler"], fresh_episodes=True)
+            if config.reseed_on_resume:
+                random.seed(config.reseed_on_resume)
+                np.random.seed(config.reseed_on_resume)
+                torch.manual_seed(config.reseed_on_resume)
+                if torch.cuda.is_available():
+                    torch.cuda.manual_seed_all(config.reseed_on_resume)
+                scheduler.rng.seed(config.reseed_on_resume)
+                scheduler.load_state_dict(scheduler.state_dict(), fresh_episodes=True)
         elif config.initial_model:
             initialized = torch.load(config.initial_model, map_location="cpu", weights_only=False)
             model.load_state_dict(initialized["model"])
+        anchor, anchor_sha256 = load_anchor(config, env.observation_size, env.action_count, device)
+        if anchor_sha256:
+            (checkpoint_dir / "anchor.json").write_text(
+                json.dumps({"anchorModel": config.anchor_model, "sha256": anchor_sha256}, indent=2), encoding="utf-8"
+            )
+        policy_parameters = {id(p) for p in list(model.body.parameters()) + list(model.policy.parameters())}
         observations, _ = env.reset(scheduler.initial())
         batch_steps = config.rollout_steps * env.count
         remaining_steps = max(0, config.total_steps - global_step)
@@ -389,7 +451,14 @@ def train(config: PPOConfig) -> Path:
             advantage_mean = valid_advantages.mean()
             advantage_std = valid_advantages.std(unbiased=False)
 
+            anchor_logits_flat = None
+            if anchor is not None:
+                with torch.no_grad():
+                    anchor_logits_flat, _ = anchor(flat_obs)
+            kl_coef = anchor_coefficient(config, update)
+            freeze_policy = update <= config.policy_freeze_updates
             losses = []
+            kl_values = []
             for _ in range(config.update_epochs):
                 permutation = valid[np.random.permutation(len(valid))]
                 for start in range(0, len(permutation), config.minibatch_size):
@@ -398,6 +467,12 @@ def train(config: PPOConfig) -> Path:
                     _, new_logprob, entropy, new_value = model.action_and_value(
                         flat_obs[batch], flat_actions[batch]
                     )
+                    anchor_term = torch.zeros((), device=device)
+                    if anchor_logits_flat is not None:
+                        current_logits, _ = model(flat_obs[batch])
+                        kl = anchor_kl(anchor_logits_flat[batch], current_logits)
+                        kl_values.append(float(kl.mean().item()))
+                        anchor_term = kl.mean()
                     log_ratio = new_logprob - flat_logprobs[batch]
                     ratio = log_ratio.exp()
                     adv = (flat_advantages[batch] - advantage_mean) / (
@@ -411,13 +486,21 @@ def train(config: PPOConfig) -> Path:
                     ).mean()
                     value_loss = 0.5 * (new_value - flat_returns[batch]).pow(2).mean()
                     entropy_loss = entropy.mean()
-                    loss = (
-                        policy_loss
-                        + config.value_coef * value_loss
-                        - config.entropy_coef * entropy_loss
-                    )
+                    if freeze_policy:
+                        loss = config.value_coef * value_loss
+                    else:
+                        loss = (
+                            policy_loss
+                            + config.value_coef * value_loss
+                            - config.entropy_coef * entropy_loss
+                            + kl_coef * anchor_term
+                        )
                     optimizer.zero_grad(set_to_none=True)
                     loss.backward()
+                    if freeze_policy:
+                        for parameter in model.parameters():
+                            if id(parameter) in policy_parameters:
+                                parameter.grad = None
                     nn.utils.clip_grad_norm_(model.parameters(), config.max_grad_norm)
                     optimizer.step()
                     losses.append((policy_loss.item(), value_loss.item(), entropy_loss.item()))
@@ -445,6 +528,9 @@ def train(config: PPOConfig) -> Path:
                 "winningLionServePhases": winning_phase_counts.tolist(),
                 "rewardComponents": reward_component_sums,
                 "completedMatchesByOpponent": completed_opponents,
+                "anchorKl": float(np.mean(kl_values)) if kl_values else None,
+                "anchorKlCoef": kl_coef,
+                "policyFrozen": bool(freeze_policy),
             }
             if update % config.log_every == 0 or local_update == updates:
                 print(json.dumps(record, separators=(",", ":")), flush=True)
