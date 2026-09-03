@@ -1,0 +1,386 @@
+{
+  "createdAt": "2026-09-02T15:55:30.369Z",
+  "seed": 173092026,
+  "coreGamesPerOpponent": 300,
+  "extendedGamesPerOpponent": 100,
+  "passed": true,
+  "criteria": {
+    "lion3MinimumWinRate": 0.99,
+    "counterMinimumWinRate": 0.75,
+    "adaptive2MinimumWinRate": 0.85,
+    "jimin2MinimumWinRate": 0.95,
+    "adversarialCounterMinimumWinRate": 0.45,
+    "maximumRegression": 0.05,
+    "requiredErrors": 0
+  },
+  "results": {
+    "lion3": {
+      "final": {
+        "games": 300,
+        "wins": 300,
+        "losses": 0,
+        "draws": 0,
+        "pointsFor": 3000,
+        "pointsAgainst": 1296,
+        "errors": 0,
+        "winRate": 1
+      },
+      "baseline": {
+        "games": 300,
+        "wins": 300,
+        "losses": 0,
+        "draws": 0,
+        "pointsFor": 3000,
+        "pointsAgainst": 1296,
+        "errors": 0,
+        "winRate": 1
+      },
+      "winRateDelta": 0
+    },
+    "disaster": {
+      "final": {
+        "games": 300,
+        "wins": 171,
+        "losses": 129,
+        "draws": 0,
+        "pointsFor": 2843,
+        "pointsAgainst": 2643,
+        "errors": 0,
+        "winRate": 0.57
+      },
+      "baseline": {
+        "games": 300,
+        "wins": 138,
+        "losses": 162,
+        "draws": 0,
+        "pointsFor": 2838,
+        "pointsAgainst": 2862,
+        "errors": 0,
+        "winRate": 0.46
+      },
+      "winRateDelta": 0.11
+    },
+    "counter": {
+      "final": {
+        "games": 300,
+        "wins": 253,
+        "losses": 47,
+        "draws": 0,
+        "pointsFor": 2774,
+        "pointsAgainst": 2219,
+        "errors": 0,
+        "winRate": 0.8433
+      },
+      "baseline": {
+        "games": 300,
+        "wins": 252,
+        "losses": 48,
+        "draws": 0,
+        "pointsFor": 2908,
+        "pointsAgainst": 2425,
+        "errors": 0,
+        "winRate": 0.84
+      },
+      "winRateDelta": 0.0033
+    },
+    "adaptive2": {
+      "final": {
+        "games": 300,
+        "wins": 287,
+        "losses": 13,
+        "draws": 0,
+        "pointsFor": 2909,
+        "pointsAgainst": 1041,
+        "errors": 0,
+        "winRate": 0.9567
+      },
+      "baseline": {
+        "games": 300,
+        "wins": 152,
+        "losses": 147,
+        "draws": 1,
+        "pointsFor": 2679,
+        "pointsAgainst": 1882,
+        "errors": 0,
+        "winRate": 0.5083
+      },
+      "winRateDelta": 0.4484
+    },
+    "adaptive1": {
+      "final": {
+        "games": 300,
+        "wins": 294,
+        "losses": 6,
+        "draws": 0,
+        "pointsFor": 2931,
+        "pointsAgainst": 1082,
+        "errors": 0,
+        "winRate": 0.98
+      },
+      "baseline": {
+        "games": 300,
+        "wins": 300,
+        "losses": 0,
+        "draws": 0,
+        "pointsFor": 2969,
+        "pointsAgainst": 1544,
+        "errors": 0,
+        "winRate": 1
+      },
+      "winRateDelta": -0.02
+    },
+    "v5_4": {
+      "final": {
+        "games": 300,
+        "wins": 288,
+        "losses": 12,
+        "draws": 0,
+        "pointsFor": 2892,
+        "pointsAgainst": 426,
+        "errors": 0,
+        "winRate": 0.96
+      },
+      "baseline": {
+        "games": 300,
+        "wins": 283,
+        "losses": 17,
+        "draws": 0,
+        "pointsFor": 2851,
+        "pointsAgainst": 470,
+        "errors": 0,
+        "winRate": 0.9433
+      },
+      "winRateDelta": 0.0167
+    },
+    "jimin2": {
+      "final": {
+        "games": 300,
+        "wins": 300,
+        "losses": 0,
+        "draws": 0,
+        "pointsFor": 3000,
+        "pointsAgainst": 501,
+        "errors": 0,
+        "winRate": 1
+      },
+      "baseline": {
+        "games": 300,
+        "wins": 300,
+        "losses": 0,
+        "draws": 0,
+        "pointsFor": 3000,
+        "pointsAgainst": 316,
+        "errors": 0,
+        "winRate": 1
+      },
+      "winRateDelta": 0
+    },
+    "builtin": {
+      "final": {
+        "games": 300,
+        "wins": 298,
+        "losses": 2,
+        "draws": 0,
+        "pointsFor": 2998,
+        "pointsAgainst": 1385,
+        "errors": 0,
+        "winRate": 0.9933
+      },
+      "baseline": {
+        "games": 300,
+        "wins": 289,
+        "losses": 11,
+        "draws": 0,
+        "pointsFor": 2979,
+        "pointsAgainst": 1902,
+        "errors": 0,
+        "winRate": 0.9633
+      },
+      "winRateDelta": 0.03
+    },
+    "priorityCounter": {
+      "final": {
+        "games": 300,
+        "wins": 165,
+        "losses": 135,
+        "draws": 0,
+        "pointsFor": 2810,
+        "pointsAgainst": 2606,
+        "errors": 0,
+        "winRate": 0.55
+      },
+      "baseline": {
+        "games": 300,
+        "wins": 107,
+        "losses": 193,
+        "draws": 0,
+        "pointsFor": 2753,
+        "pointsAgainst": 2879,
+        "errors": 0,
+        "winRate": 0.3567
+      },
+      "winRateDelta": 0.1933
+    },
+    "hybridCounter": {
+      "final": {
+        "games": 300,
+        "wins": 152,
+        "losses": 148,
+        "draws": 0,
+        "pointsFor": 2805,
+        "pointsAgainst": 2643,
+        "errors": 0,
+        "winRate": 0.5067
+      },
+      "baseline": {
+        "games": 300,
+        "wins": 108,
+        "losses": 192,
+        "draws": 0,
+        "pointsFor": 2737,
+        "pointsAgainst": 2879,
+        "errors": 0,
+        "winRate": 0.36
+      },
+      "winRateDelta": 0.1467
+    },
+    "lionPhase0": {
+      "final": {
+        "games": 300,
+        "wins": 242,
+        "losses": 58,
+        "draws": 0,
+        "pointsFor": 2843,
+        "pointsAgainst": 2455,
+        "errors": 0,
+        "winRate": 0.8067
+      },
+      "baseline": {
+        "games": 300,
+        "wins": 145,
+        "losses": 155,
+        "draws": 0,
+        "pointsFor": 2845,
+        "pointsAgainst": 2855,
+        "errors": 0,
+        "winRate": 0.4833
+      },
+      "winRateDelta": 0.3234
+    },
+    "lion1": {
+      "final": {
+        "games": 100,
+        "wins": 79,
+        "losses": 21,
+        "draws": 0,
+        "pointsFor": 962,
+        "pointsAgainst": 229,
+        "errors": 0,
+        "winRate": 0.79
+      },
+      "baseline": {
+        "games": 100,
+        "wins": 79,
+        "losses": 21,
+        "draws": 0,
+        "pointsFor": 969,
+        "pointsAgainst": 229,
+        "errors": 0,
+        "winRate": 0.79
+      },
+      "winRateDelta": 0
+    },
+    "lion2": {
+      "final": {
+        "games": 100,
+        "wins": 100,
+        "losses": 0,
+        "draws": 0,
+        "pointsFor": 1000,
+        "pointsAgainst": 0,
+        "errors": 0,
+        "winRate": 1
+      },
+      "baseline": {
+        "games": 100,
+        "wins": 100,
+        "losses": 0,
+        "draws": 0,
+        "pointsFor": 1000,
+        "pointsAgainst": 0,
+        "errors": 0,
+        "winRate": 1
+      },
+      "winRateDelta": 0
+    },
+    "v5_3": {
+      "final": {
+        "games": 100,
+        "wins": 100,
+        "losses": 0,
+        "draws": 0,
+        "pointsFor": 1000,
+        "pointsAgainst": 114,
+        "errors": 0,
+        "winRate": 1
+      },
+      "baseline": {
+        "games": 100,
+        "wins": 96,
+        "losses": 4,
+        "draws": 0,
+        "pointsFor": 968,
+        "pointsAgainst": 119,
+        "errors": 0,
+        "winRate": 0.96
+      },
+      "winRateDelta": 0.04
+    },
+    "myTeam14": {
+      "final": {
+        "games": 100,
+        "wins": 100,
+        "losses": 0,
+        "draws": 0,
+        "pointsFor": 999,
+        "pointsAgainst": 39,
+        "errors": 0,
+        "winRate": 1
+      },
+      "baseline": {
+        "games": 100,
+        "wins": 100,
+        "losses": 0,
+        "draws": 0,
+        "pointsFor": 963,
+        "pointsAgainst": 196,
+        "errors": 0,
+        "winRate": 1
+      },
+      "winRateDelta": 0
+    },
+    "oldV6": {
+      "final": {
+        "games": 100,
+        "wins": 100,
+        "losses": 0,
+        "draws": 0,
+        "pointsFor": 1000,
+        "pointsAgainst": 44,
+        "errors": 0,
+        "winRate": 1
+      },
+      "baseline": {
+        "games": 100,
+        "wins": 85,
+        "losses": 15,
+        "draws": 0,
+        "pointsFor": 891,
+        "pointsAgainst": 251,
+        "errors": 0,
+        "winRate": 0.85
+      },
+      "winRateDelta": 0.15
+    }
+  }
+}
