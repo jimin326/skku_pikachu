@@ -36,7 +36,10 @@
 - 사이트는 최신본만 쓰고 09-05 기준 제출 0건. 업로드 파일명 `사자먹는은행.js`(v12.md §6).
 - 효과: 당일 어떤 게이트라도 실패하면 "새 파일을 올리지 않는다"가 후퇴 절차가 된다.
 
-### P2. 스킬 어댑터 v2 → `Lion_Eating_Bank_v12_1.js` (60~90분)
+### P2. 스킬 어댑터 v2 → `Lion_Eating_Bank_v12_1.js` (60~90분) — **완료 2026-09-05**
+결과: `bot-dev/sk_v2_patch.mjs`(앵커 7건) 로 생성, `SK.on=false` shadow_diff 22,134틱 불일치 0, 기능 검사 `bot-dev/sk_v2_test.mjs` S1~S6 전부 통과, rule_check 통과. 문서 `src/code-here/Lion_Eating_Bank_v12_1.md`.
+계획과 달라진 점: "발동 → external" 은 `resync` 노브로 두고 **기본 0**. 근거: fire 는 x/y/hit 을 바꾸지 않고 AC 가 매 틱 공중 정책을 재점수(−400 기준)해 스스로 버리는데, resync 1 은 44랠리 중 4개에서 하류 출력을 갈라 놓았다(S5). 필드 로그는 "첫 등장"도 찍도록 확장(활성 중에만 나타나는 키 대비).
+
 v12 는 생성기 산출물이라 손 편집 금지. **`bot-dev/sk_v2_patch.mjs`**(앵커 정확히 1회 일치 검사) 로 v12 → v12_1 을 만든다. 채택 조건: `SK.on=false` 에서 v12 와 출력 동일(`bot-dev/v8/shadow_diff.mjs` 불일치 0).
 
 바꾸는 것(27~49행 SK 블록, 1863~1871행 `logNewFields`, 1929~1934행 오케스트레이터):
@@ -57,22 +60,33 @@ var SK = {
 - `logNewFields` v2: 새 키마다 "첫 값 / 첫 non-null 값 / 타입이 바뀔 때" 최대 3회, 총 12줄 상한. `claw` 처럼 처음 null 인 객체의 키를 볼 수 있어야 한다.
 - 규칙상 금지 행동 필터 자리(B4-d)는 지금처럼 `applySkill` try 블록 안에 둔다.
 
-### P3. `sim_real.mjs` 에 스킬 훅 + 엔진 경로 환경변수 (60~90분)
+### P3. `sim_real.mjs` 에 스킬 훅 + 엔진 경로 환경변수 (60~90분) — **완료 2026-09-05**
+결과: `sim_real.mjs` 에 `ENGINE_ROOT`(레포 루트 또는 src, 기본 ../src) + 훅 5개(`init/onRally/extend/filterInput/observe`) + `awardPoint` 공통 경로 + shim 3개(`pikaVolleyShim/tickerShim/operatorShim`). 봇 반환 객체의 추가 키를 `latestAction` 에 보존(실엔진과 같게). 새 도구 `bot-dev/eval_skill_real.mjs`(스킬 OFF/ON 같은 시드, builtin 상대 가능, `--sk` 로 봇 노브 대입), 템플릿 `bot-dev/skills/today.mjs`(A 공 물리·B 스턴·C 득점 원형, `SKILL_CFG` 환경변수로 전환). `shadow_diff`·`sk_v2_test`·`rule_check` 의 시드는 sim_real 이 export 하는 `setCustomRng` 로 통일(ENGINE_ROOT 를 바꿔도 같은 rand 인스턴스).
+검증: 훅 없이 수정 전후 8경기 랠리 단위 동일, `ENGINE_ROOT=<이 레포>` 도 동일, 잘못된 경로는 즉시 오류. A/B/C 원형 각각 v12_1 `fire=1` 로 발동 5~9회·규칙 armed/소모 일치, C 는 `how='skill'` 랠리 5. 가짜 `setUpSkill(pikaVolley, ticker, operator)` 를 shim 에 붙여 ticker 콜백 매 프레임·`keyboardArray[i].latestAction.skill` 관측·`operator.awardPoint` 득점(10랠리 전부 skill) 확인. 회귀: sk_v2_test S1~S6 수치 동일, shadow_diff 0, rule_check 4-0·예외 0.
+당일 주의: `awardPoint` 는 라운드 종료·경기 종료 뒤에는 거절한다(실엔진 operator 와 같음). skill ↔ touchLimit 관찰 순서는 새 `main.js` 에서 확인해 `step()` 의 호출 순서를 맞춘다.
 - `ENGINE_ROOT` 환경변수(기본 `../src`)로 `physics.js`·`rand.js`·`botContract.js` import 경로를 바꿀 수 있게 한다. 당일 새 레포를 가리키면 **새 물리·새 스냅샷 빌더를 그대로 얻는다.** 우리가 스킬 물리를 손으로 흉내낼 필요가 없어진다.
 - `RealGame` 에 훅 4개: `extend(snapshot, side)` → `BotInput.getInput` 의 `buildSnapshot` 뒤, `filterInput(side, action)` → 큐에서 꺼내 적용하기 직전, `observe(phys, game)` → `runEngineForNextFrame` 뒤(`observeTouchLimit` 옆, 여기가 assembly-layer 후처리와 같은 자리), `award` 반환 시 `endRally`+점수. 시그니처는 `skills/example_gauge.mjs` 와 같게.
 - 새 레포의 `skill/setup.js` 가 `setUpSkill(pikaVolley, ticker, …)` 꼴(`main.js` 157행 `setUpTouchLimit` 과 같은 패턴, 추론)이면, `RealGame` 을 `{physics, keyboardArray: inputs, scores, isPlayer2Serve, state}` 모양 shim 으로 감싸 **그들 코드를 직접 호출**한다. shim 은 지금 만들어 두고 당일 필드명만 맞춘다.
 - `eval_skill.mjs` 를 sim_real 위로 옮긴 `eval_skill_real.mjs`(좌우×서브권×N, 스킬 OFF/ON, 스킬로 끝난 랠리 수). 기본 봇 경로를 v12 로.
 - `skills/today.mjs` 템플릿: 유형 A(공 속도 덮어쓰기)·B(스턴)·C(득점) 세 원형을 주석으로 미리 써 두고 당일 하나만 살린다.
 
-### P4. 당일 스크립트 묶음 `bot-dev/dayof/` (40분)
+### P4. 당일 스크립트 묶음 `bot-dev/dayof/` (40분) — **완료 2026-09-05**
+결과(전부 Node 스크립트, 사용법은 `bot-dev/dayof/README.md` 의 T+ 순서):
+- `diff_engine.mjs <새레포>`: 상수표(B1) · 핵심 12파일 diff · 새 레포에만 있는 파일 · claw|gauge|skill grep · skill/ 모듈 전문 · 제공 봇 return 줄. 가짜 레포(중력·상한 변경 + skill/setup.js·gauge.js + Staff_v1.js)로 전 항목 출력 확인. `out/diff_*.txt` 저장.
+- `thunder_check.mjs <새레포>`: ENGINE_ROOT 로 새 물리 위에서 봇을 돌려 TH_EXPECT 와 대조. 판정 = 불일치 0 · 봇 SELF_CHECK 이탈 0 · 표 커버리지 80/80 · 발동 관측 · 틱그룹 3. 우리 엔진 80/80 유지, 중력 바꾼 가짜 레포는 "이탈 12회·커버리지 2/80 → THUNDER_SERVE=0"(초반 2틱만 일치하던 함정을 커버리지로 잡음).
+- `gates.mjs <후보>`: 크기·로드·SK 노브 출력 → shadow_diff → sk_v2_test → rule_check, PASS/FAIL 표 + 종료 코드. v12_1 전부 PASS.
+- `harness_dayof.mjs <새레포> --opp <제공봇.js>`: 봇 복사 → webpack 빌드(7초) → 정적 서버 → Chrome 좌우 2경기 병렬 → 점수·타이밍(p50/p99/timeouts/invalid/restarts)·오류 줄·새 필드 로그·스킬 발동·썬더 로그 요약, `out/chrome_*.json`. 이 레포를 새 레포 삼아 3점 경기로 end-to-end 확인(18~20초/경기, 워커 p99 3.5ms).
+- `bot-dev/harness/dayof.json` 템플릿, `.gitignore` 에 `bot-dev/dayof/out/`.
+계획과 달라진 점: `.sh` 대신 `.mjs`(팀원 PC 의 셸 차이 회피). 봇 파일명 규약은 registry 와 같게 "마지막 `_v` 뒤 임의 버전"(v12_1 허용).
 - `diff_engine.sh <새레포경로>`: `physics.js`·`bot/botContract.js`·`bot/botInput.js`·`bot/botWorker.js`·`pikavolley.js`·`main.js`·`rules/` 를 우리 것과 diff, 새 레포 전체에서 `claw|gauge|skill` grep, `skill/setup.js`·`skill/gauge.js`·제공 봇의 `return` 문을 한 화면에 출력.
 - `harness/dayof.json`: `Lion_Eating_Bank_v12_1` vs 제공 봇, 좌우 2경기, `parallel 2`, `speed fast`. 제공 봇은 `<팀>_v<n>.js` 이름으로 `src/code-here/` 에 복사해야 드롭다운에 뜬다(`botRegistry.js` 43행).
 - `thunder_check.sh`: `thunder_expect_capture.mjs` 를 `ENGINE_ROOT=새레포` 로 돌려 `TH_EXPECT`(81행) 와 전 구간 비교. 불일치 1개라도 있으면 `THUNDER_SERVE=0`.
 - `gates.sh <후보.js>`: `rule_check.mjs` + `shadow_diff`(SK off, v12 대비 0) + 파일 크기 + 최상위 `decide` 를 한 번에.
 - 시간 제약 기록: Chrome 1세트 = **344~447초**(fast, chrome_v12 결과). 1시간에 실기는 4세트가 한계 → 벤치는 sim_real, Chrome 은 마지막 확인용.
 
-### P5. 1시간 런북 교체 (이 문서 §4·§5·§6 이 런북이다)
-- `bot-dev/RUNBOOK_당일.md` 는 3시간·v9 템플릿(`skillPolicy`, `render9.mjs`) 기준으로 폐기 대상. 이 문서를 팀 main 에 올리고 그 파일은 삭제하거나 "폐기" 머리말을 단다.
+### P5. 1시간 런북 교체 (이 문서 §4·§5·§6 이 런북이다) — **완료 2026-09-05**
+- `bot-dev/RUNBOOK_당일.md` 는 3시간·v9 템플릿(`skillPolicy`, `render9.mjs`) 기준이라 폐기. 5개 문서(COMPETITION_GUIDE·SKILL_PREDICTION·TEAM_VERIFY_PROMPT·V11_VERIFY_REPORT·이 문서)가 파일명을 가리키므로 삭제 대신 **폐기 머리말 + 새 절차 안내 스텁**으로 교체(옛 내용은 Git 이력). 유효한 원칙 3개(5줄 받아적기·시간 없으면 동결판·제출 뒤 수정 금지)만 남겼다.
+- `src/code-here/Lion_Eating_Bank_v12.md` §6 을 이 문서·`dayof/README.md`·v12_1 로 갱신. `bot-dev/README.md` 도구 표에 `eval_skill_real`·`skills/today`·`dayof/`·`sk_v2_*` 행 추가.
 
 ### P6. 팀 공유 (10분)
 - 이 문서 + `dayof/` + `sk_v2_patch.mjs` + `eval_skill_real.mjs` 를 `skku-pikachu` main 에 push. 팀 저장소에는 검증 도구가 없다(keunhyung 리뷰 #9).
