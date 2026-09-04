@@ -20,7 +20,8 @@ const pos = args.filter((a) => !a.startsWith('--'));
 const inF = pos[0] || 'src/code-here/Lion_Eating_Bank_v12.js';
 const outF = pos[1] || 'src/code-here/Lion_Eating_Bank_v12_1.js';
 const check = args.includes('--check');
-let s = fs.readFileSync(inF, 'utf8');
+/* 앵커 문자열이 LF 기준이라 CRLF 로 체크아웃된 파일에서 조용히 실패한다. 읽을 때 정규화한다. */
+let s = fs.readFileSync(inF, 'utf8').replace(/\r\n/g, '\n');
 
 const P = [
   { name: 'A0 머리말',

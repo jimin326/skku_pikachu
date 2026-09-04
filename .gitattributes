@@ -1,0 +1,9 @@
+# 도구(sk_v2_patch 등)의 앵커 문자열이 LF 기준이라 CRLF 체크아웃이면 조용히 실패한다.
+# Windows 에서도 작업 트리를 LF 로 유지한다.
+* text=auto eol=lf
+
+# 바이너리 에셋은 건드리지 않는다
+*.png binary
+*.jpg binary
+*.wav binary
+*.mp3 binary
