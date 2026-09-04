@@ -12,8 +12,8 @@
  *   S6 fire=1, 게이지 객체 {ready:true} / boolean true → skFull 형식 허용 확인(발동 > 0)
  */
 import path from 'node:path'; import fs from 'node:fs';
-import { pathToFileURL } from 'node:url';
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '..');
+import { pathToFileURL, fileURLToPath } from 'node:url';
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const { RealGame, BotInput, setCustomRng } = await import(pathToFileURL(path.join(ROOT, 'bot-dev/sim_real.mjs')));   // setCustomRng 는 sim_real 이 쓰는 엔진(ENGINE_ROOT)의 것
 const DIR = path.join(ROOT, 'src/code-here');
 const A = process.argv[2] || 'Lion_Eating_Bank_v12', B = process.argv[3] || 'Lion_Eating_Bank_v12_1';

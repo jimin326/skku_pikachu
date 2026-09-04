@@ -5,8 +5,8 @@
  *   시간 측정은 틱마다 호출 순서를 번갈아(A→B, B→A) 캐시 편향을 줄인다. 봇 이름은 src/code-here 의 파일명(.js 생략 가능) 또는 경로.
  */
 import path from 'node:path'; import fs from 'node:fs';
-import { pathToFileURL } from 'node:url';
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '..', '..');
+import { pathToFileURL, fileURLToPath } from 'node:url';
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const { RealGame, BotInput, setCustomRng } = await import(pathToFileURL(path.join(ROOT, 'bot-dev/sim_real.mjs')));   // setCustomRng 는 sim_real 이 쓰는 엔진(ENGINE_ROOT)의 것
 const DIR = path.join(ROOT, 'src/code-here');
 const A = process.argv[2], B = process.argv[3];

@@ -1,0 +1,52 @@
+{
+  "name": "leonyi-volleyball",
+  "version": "1.0.0",
+  "description": "리온이 배구 — 피카츄 배구 기반 2026 성균관대학교 × 한양대학교 CSE 교류전 AI 부문 대회 버전",
+  "private": true,
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "webpack serve --config webpack.dev.js",
+    "build": "webpack --config webpack.prod.js",
+    "lint": "eslint src --ext .js",
+    "verify": "npm run lint && npm run build"
+  },
+  "keywords": [
+    "game",
+    "tournament",
+    "ai",
+    "bot"
+  ],
+  "author": "",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "clean-webpack-plugin": "^4.0.0",
+    "copy-webpack-plugin": "^11.0.0",
+    "eslint": "^8.17.0",
+    "eslint-plugin-prettier": "^4.0.0",
+    "html-webpack-plugin": "^5.5.0",
+    "prettier": "^2.6.2",
+    "webpack": "^5.76.0",
+    "webpack-cli": "^4.9.2",
+    "webpack-dev-server": "^4.9.1",
+    "webpack-merge": "^5.8.0",
+    "workbox-webpack-plugin": "^6.5.3"
+  },
+  "dependencies": {
+    "@pixi/canvas-display": "^6.4.2",
+    "@pixi/canvas-prepare": "^6.4.2",
+    "@pixi/canvas-renderer": "^6.4.2",
+    "@pixi/canvas-sprite": "^6.4.2",
+    "@pixi/constants": "^6.4.2",
+    "@pixi/core": "^6.4.2",
+    "@pixi/display": "^6.4.2",
+    "@pixi/loaders": "^6.4.2",
+    "@pixi/prepare": "^6.4.2",
+    "@pixi/settings": "^6.4.2",
+    "@pixi/sound": "^4.2.1",
+    "@pixi/sprite": "^6.4.2",
+    "@pixi/sprite-animated": "^6.4.2",
+    "@pixi/spritesheet": "^6.4.2",
+    "@pixi/ticker": "^6.4.2",
+    "pyodide": "314.0.3"
+  }
+}

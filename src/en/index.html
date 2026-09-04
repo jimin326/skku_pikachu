@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>리온이 배구</title>
+    <meta name="description" content="리온이 배구 — 피카츄 배구 기반 AI 대회 버전" />
+    <meta name="author" content="Kyutae Lee" />
+
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="theme-color" content="#FFFFFF" />
+    <meta name="apple-mobile-web-app-title" content="리온이 배구" />
+    <link
+      rel="apple-touch-icon"
+      sizes="192x192"
+      href="../resources/assets/images/IDI_PIKAICON-1_gap_filled_192.png"
+    />
+    <link rel="manifest" href="./manifest.json" />
+
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="../resources/assets/images/IDI_PIKAICON-0.png"
+    />
+    <link rel="stylesheet" href="../resources/style.css" />
+  </head>
+  <body>
+    <div id="flex-container">
+      <div id="menu-bar">
+        <div class="btn-container left">
+          <div class="relative-container">
+            <button
+              type="button"
+              id="game-dropdown-btn"
+              class="btn dropdown-btn"
+            >
+              Game
+            </button>
+            <div id="game-dropdown" class="dropdown">
+              <button type="button" id="pause-btn" class="btn">
+                <span class="check">&check; </span>Pause
+              </button>
+              <button type="button" id="restart-btn" class="btn">
+                Restart
+              </button>
+            </div>
+          </div>
+          <div class="relative-container">
+            <button
+              type="button"
+              id="options-dropdown-btn"
+              class="btn dropdown-btn"
+            >
+              Options
+            </button>
+            <div id="options-dropdown" class="dropdown">
+              <div class="relative-container">
+                <button
+                  type="button"
+                  id="graphic-submenu-btn"
+                  class="btn submenu-btn"
+                >
+                  Graphic &#9654;&#xfe0e;
+                </button>
+                <div id="graphic-submenu" class="submenu">
+                  <button
+                    type="button"
+                    id="graphic-sharp-btn"
+                    class="btn selected"
+                  >
+                    <span class="check">&check; </span>sharp
+                  </button>
+                  <button type="button" id="graphic-soft-btn" class="btn">
+                    <span class="check">&check; </span>soft
+                  </button>
+                </div>
+              </div>
+              <div class="relative-container">
+                <button
+                  type="button"
+                  id="bgm-submenu-btn"
+                  class="btn submenu-btn"
+                >
+                  BGM &#9654;&#xfe0e;
+                </button>
+                <div id="bgm-submenu" class="submenu">
+                  <button type="button" id="bgm-on-btn" class="btn selected">
+                    <span class="check">&check; </span>on
+                  </button>
+                  <button type="button" id="bgm-off-btn" class="btn">
+                    <span class="check">&check; </span>off
+                  </button>
+                </div>
+              </div>
+              <div class="relative-container">
+                <button
+                  type="button"
+                  id="sfx-submenu-btn"
+                  class="btn submenu-btn"
+                >
+                  SFX &#9654;&#xfe0e;
+                </button>
+                <div id="sfx-submenu" class="submenu">
+                  <button type="button" id="stereo-btn" class="btn selected">
+                    <span class="check">&check; </span>stereo
+                  </button>
+                  <button type="button" id="mono-btn" class="btn">
+                    <span class="check">&check; </span>mono
+                  </button>
+                  <button type="button" id="sfx-off-btn" class="btn">
+                    <span class="check">&check; </span>off
+                  </button>
+                </div>
+              </div>
+              <div class="relative-container">
+                <button
+                  type="button"
+                  id="speed-submenu-btn"
+                  class="btn submenu-btn"
+                >
+                  Speed &#9654;&#xfe0e;
+                </button>
+                <div id="speed-submenu" class="submenu">
+                  <button type="button" id="slow-speed-btn" class="btn">
+                    <span class="check">&check; </span>slow
+                  </button>
+                  <button
+                    type="button"
+                    id="medium-speed-btn"
+                    class="btn selected"
+                  >
+                    <span class="check">&check; </span>medium
+                  </button>
+                  <button type="button" id="fast-speed-btn" class="btn">
+                    <span class="check">&check; </span>fast
+                  </button>
+                </div>
+              </div>
+              <div class="relative-container">
+                <button
+                  type="button"
+                  id="winning-score-submenu-btn"
+                  class="btn submenu-btn"
+                >
+                  Winning score &#9654;&#xfe0e;
+                </button>
+                <div id="winning-score-submenu" class="submenu">
+                  <button type="button" id="winning-score-5-btn" class="btn">
+                    <span class="check">&check; </span>5 pts
+                  </button>
+                  <button
+                    type="button"
+                    id="winning-score-10-btn"
+                    class="btn selected"
+                  >
+                    <span class="check">&check; </span>10 pts
+                  </button>
+                  <button type="button" id="winning-score-15-btn" class="btn">
+                    <span class="check">&check; </span>15 pts
+                  </button>
+                </div>
+              </div>
+              <div class="relative-container">
+                <button
+                  type="button"
+                  id="serve-rule-submenu-btn"
+                  class="btn submenu-btn"
+                >
+                  Serve &#9654;&#xfe0e;
+                </button>
+                <div id="serve-rule-submenu" class="submenu">
+                  <button
+                    type="button"
+                    id="serve-rule-random-btn"
+                    class="btn selected"
+                  >
+                    <span class="check">&check; </span>Random serve
+                  </button>
+                  <button type="button" id="serve-rule-winner-btn" class="btn">
+                    <span class="check">&check; </span>Winner serves
+                  </button>
+                  <button type="button" id="serve-rule-loser-btn" class="btn">
+                    <span class="check">&check; </span>Loser serves
+                  </button>
+                </div>
+              </div>
+              <div class="relative-container">
+                <button
+                  type="button"
+                  id="practice-mode-submenu-btn"
+                  class="btn submenu-btn"
+                >
+                  Practice mode &#9654;&#xfe0e;
+                </button>
+                <div id="practice-mode-submenu" class="submenu">
+                  <button type="button" id="practice-mode-on-btn" class="btn">
+                    <span class="check">&check; </span>on
+                  </button>
+                  <button
+                    type="button"
+                    id="practice-mode-off-btn"
+                    class="btn selected"
+                  >
+                    <span class="check">&check; </span>off
+                  </button>
+                </div>
+              </div>
+              <button type="button" id="reset-to-default-btn" class="btn">
+                Reset to default
+              </button>
+            </div>
+          </div>
+          <button type="button" id="bot-setup-btn" class="btn" disabled>
+            Bot Setup
+          </button>
+          <button type="button" id="operator-btn" class="btn" disabled>
+            Operator
+          </button>
+          <div class="color-scheme-toggle-switch-container">
+            <input
+              type="checkbox"
+              id="dark-color-scheme-checkbox-1"
+              class="toggle-switch dark-color-scheme-checkbox"
+            />
+            <label for="dark-color-scheme-checkbox-1"></label>
+          </div>
+        </div>
+        <div class="btn-container right">
+          <button type="button" id="about-btn" class="btn glow">
+            <span class="text-about hidden">About</span
+            ><span class="text-play">Play</span>
+          </button>
+        </div>
+      </div>
+      <div class="if-embedded-in-other-website hidden">
+        <div class="limit-width">
+          It seems that you are playing this web version of
+          <span class="no-wrap">Pikachu Volleyball</span>
+          in some foreign website. If you visit the following link directly, you
+          can play the game in a pleasant environment without ads.
+          <div class="original-address">
+            The original address of this web version of Pikachu Volleyball:<br />
+            <a
+              href="https://gorisanson.github.io/pikachu-volleyball/en/"
+              target="_blank"
+              rel="noopener"
+              >https://gorisanson.github.io/pikachu-volleyball/en/</a
+            >
+          </div>
+          <button type="button" class="btn-in-box">
+            <span>close</span>
+          </button>
+        </div>
+      </div>
+      <div id="game-canvas-container">
+        <div id="team-label-left" class="team-label team-label-left"></div>
+        <div id="team-label-right" class="team-label team-label-right"></div>
+        <div class="fade-in-box about" id="about-box">
+          <div id="about-box-head">
+            <h1>리온이 배구</h1>
+            <p>
+              피카츄 배구 웹 버전을 기반으로, 참가자가 봇 코드를 작성해 붙일 수
+              있도록 개조한<br />
+              <span class="no-wrap">2026 성균관대학교 &times; 한양대학교</span>
+              CSE 교류전 AI 부문 대회 버전입니다.
+            </p>
+            <p>
+              참가자 안내, 봇 코드 작성 규약, 대회 규칙 등 실행·활용 방법은
+              별도 가이드 문서에서 확인하세요:<br />
+              <a
+                href="https://shaims.vercel.app/"
+                target="_blank"
+                rel="noopener"
+                >https://shaims.vercel.app/</a
+              ><br />
+              팀명과 별도 안내된 비밀번호로 로그인 후 [가이드] 메뉴를
+              확인해주세요.
+            </p>
+            <p class="original-by">
+              원조 피카츄 배구 (対戦ぴかちゅ～　ﾋﾞｰﾁﾊﾞﾚｰ編) 게임은 다음 분들이
+              만들었습니다.<br />
+              1997 (C)
+              <span class="no-wrap">SACHI SOFT / SAWAYAKAN Programmers</span
+              ><br />
+              1997 (C) <span class="no-wrap">Satoshi Takenouchi</span>
+            </p>
+            <p class="reverse-engineered-by">
+              본 대회 버전이 기반한 피카츄 배구 웹 버전은
+              <span class="no-wrap"
+                ><a
+                  href="https://gorisanson.github.io/"
+                  target="_blank"
+                  rel="noopener"
+                  >이규태(gorisanson)</a
+                ></span
+              >
+              님이 원작을 리버스 엔지니어링하여 자바스크립트로 구현한
+              코드입니다.
+            </p>
+            <p class="source-code-on">
+              피카츄 배구 웹 버전 소스 코드는
+              <a
+                href="https://github.com/gorisanson/pikachu-volleyball"
+                target="_blank"
+                rel="noopener"
+                >GitHub</a
+              >에서 볼 수 있습니다.
+            </p>
+          </div>
+          <div class="margin-top limit-width">
+            <div class="align-center-horizontally">
+              <img
+                class="screenshot"
+                src="../resources/assets/images/screenshot.png"
+                width="1728"
+                height="1216"
+                alt="게임 스크린샷"
+              />
+            </div>
+            <p class="margin-top"><span class="thick">키보드 조작법:</span></p>
+            <div class="align-center-horizontally">
+              <img
+                class="controls"
+                src="../resources/assets/images/controls_ko.png"
+                width="1920"
+                height="984"
+                alt="game controls"
+              />
+            </div>
+            <p class="margin-top"><span class="thick">봇 적용법:</span></p>
+            <div class="align-center-horizontally">
+              <img
+                class="screenshot"
+                src="../resources/assets/images/screenshot1.png"
+                width="2088"
+                height="1610"
+                alt="봇 설정 화면"
+              />
+            </div>
+            <p class="margin-top">
+              우측 상단 [게임 시작] 버튼 클릭 &rarr; 좌측 3번째 [봇 설정] 클릭
+              &rarr; 양쪽 진영 입력 선택 &rarr; 재시작(필수)<br />
+              <code>src/code-here/</code> 안에 파일을 위치해야 선택이
+              가능합니다. (자세한 내용은 가이드 참고)
+            </p>
+            <p class="margin-top">
+              <span class="thick">팁:</span><br />
+              메뉴 바를 숨기려면(또는 다시 보이게 하려면) Esc 키를 누르면
+              됩니다.
+            </p>
+            <div class="margin-top">
+              <button
+                type="button"
+                id="close-about-btn"
+                class="btn-in-box glow"
+              >
+                <span class="text-close hidden">close</span
+                ><span class="text-play">Play</span>
+              </button>
+            </div>
+            <div class="for-margin"></div>
+          </div>
+        </div>
+        <div class="fade-in-box bot-setup hidden" id="bot-setup-box">
+          <h1>Bot Test Setup</h1>
+          <p class="small">
+            Left / right side each independently: keyboard, bot code,
+            or the built-in AI. Bot code files are picked up automatically
+            from <code>src/code-here/</code> if their name follows
+            <code>&lt;team&gt;_v&lt;version&gt;.js|py</code>. Settings apply
+            after you click Apply, which restarts the game.
+          </p>
+          <div class="bot-setup-columns">
+            <div class="bot-setup-side">
+              <p class="thick">Left side (Player 1)</p>
+              <div class="bot-setup-mode-group" id="bot-setup-left-mode">
+                <button type="button" class="btn selected" data-mode="keyboard">
+                  <span class="check">&check; </span>Keyboard
+                </button>
+                <button type="button" class="btn" data-mode="bot">
+                  <span class="check">&check; </span>Bot code
+                </button>
+                <button type="button" class="btn" data-mode="ai">
+                  <span class="check">&check; </span>Built-in AI
+                </button>
+              </div>
+              <label class="bot-setup-select-label" for="bot-setup-left-bot">
+                Bot (used when Bot code mode is selected):
+              </label>
+              <select
+                id="bot-setup-left-bot"
+                class="bot-setup-select"
+              ></select>
+              <p id="bot-setup-left-status" class="bot-setup-status"></p>
+            </div>
+            <div class="bot-setup-side">
+              <p class="thick">Right side (Player 2)</p>
+              <div class="bot-setup-mode-group" id="bot-setup-right-mode">
+                <button type="button" class="btn selected" data-mode="keyboard">
+                  <span class="check">&check; </span>Keyboard
+                </button>
+                <button type="button" class="btn" data-mode="bot">
+                  <span class="check">&check; </span>Bot code
+                </button>
+                <button type="button" class="btn" data-mode="ai">
+                  <span class="check">&check; </span>Built-in AI
+                </button>
+              </div>
+              <label class="bot-setup-select-label" for="bot-setup-right-bot">
+                Bot (used when Bot code mode is selected):
+              </label>
+              <select
+                id="bot-setup-right-bot"
+                class="bot-setup-select"
+              ></select>
+              <p id="bot-setup-right-status" class="bot-setup-status"></p>
+            </div>
+          </div>
+          <div class="bot-setup-actions">
+            <button type="button" id="bot-setup-apply-btn" class="btn-in-box glow">
+              Apply (restart)
+            </button>
+            <button type="button" id="bot-setup-close-btn" class="btn-in-box">
+              Close
+            </button>
+          </div>
+        </div>
+        <div class="fade-in-box operator hidden" id="operator-box">
+          <h1>Operator Console</h1>
+          <p class="small">
+            For foul calls, restoring the score of an interrupted match, and
+            forcing a stalled rally onward. The score buttons only change the
+            score and leave the rally running, so rebuild the score first and
+            then press "Next rally" if you need to -- either picking which side
+            serves the restart or drawing it at random per the serve rule.
+          </p>
+          <p class="operator-score" id="operator-status">0 : 0</p>
+          <div class="operator-columns">
+            <div class="operator-side">
+              <p class="thick">Left (Player 1)</p>
+              <div class="operator-score-group">
+                <button type="button" id="operator-left-plus-btn" class="btn">
+                  +1
+                </button>
+                <button type="button" id="operator-left-minus-btn" class="btn">
+                  &minus;1
+                </button>
+              </div>
+            </div>
+            <div class="operator-side">
+              <p class="thick">Right (Player 2)</p>
+              <div class="operator-score-group">
+                <button type="button" id="operator-right-plus-btn" class="btn">
+                  +1
+                </button>
+                <button type="button" id="operator-right-minus-btn" class="btn">
+                  &minus;1
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="operator-actions">
+            <button
+              type="button"
+              id="operator-next-round-left-btn"
+              class="btn-in-box"
+            >
+              Next rally (left serve)
+            </button>
+            <button
+              type="button"
+              id="operator-next-round-right-btn"
+              class="btn-in-box"
+            >
+              Next rally (right serve)
+            </button>
+            <button
+              type="button"
+              id="operator-next-round-random-btn"
+              class="btn-in-box"
+            >
+              Next rally (random serve)
+            </button>
+            <button type="button" id="operator-reset-btn" class="btn-in-box">
+              Reset score
+            </button>
+            <button type="button" id="operator-close-btn" class="btn-in-box">
+              Close
+            </button>
+          </div>
+        </div>
+        <div class="fade-in-box hidden" id="bot-loading-box">
+          <h1>Setting up bot environment</h1>
+          <p id="bot-loading-text">Loading bot code...</p>
+          <p class="small">
+            First-time Python loads may take a few seconds. Please wait
+            here -- the game will start once the runtime is ready.
+          </p>
+        </div>
+        <div class="fade-in-box notice hidden" id="notice-box-1">
+          <p>
+            The winning score can not be set to the
+            <span id="winning-score-in-notice-box-1"></span> pts, since the
+            score is already reached.
+          </p>
+          <button type="button" id="notice-ok-btn-1" class="btn-in-box">
+            OK
+          </button>
+        </div>
+        <div class="fade-in-box notice hidden" id="notice-box-2">
+          <p>
+            There's no point adjusting the winning score in practice mode.<br />
+            You can turn off practice mode at
+            <span class="no_wrap"
+              >"Options &rarr; Practice mode &rarr; off"</span
+            >.
+          </p>
+          <button type="button" id="notice-ok-btn-2" class="btn-in-box">
+            OK
+          </button>
+        </div>
+        <div class="fade-in-box loading hidden" id="loading-box">
+          <div>
+            <p>Loading the game assets...</p>
+            <div id="progress-bar-border">
+              <div id="progress-bar" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+        <div
+          class="fade-in-box update hidden"
+          id="update-notification-message-box"
+        >
+          A new version is available. Update now?
+          <div>
+            <button type="button" class="update" id="update-now">
+              Update Now (current game state will be lost)
+            </button>
+            <button type="button" class="update" id="later">
+              Later (automatically at relaunching the browser)
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script type="module">
+      /*
+       * Register service worker with some configuration for service worker update notice.
+       * Major parts of the code below are copied from: https://developers.google.com/web/tools/workbox/guides/advanced-recipes
+       */
+      import { Workbox } from 'https://storage.googleapis.com/workbox-cdn/releases/5.0.0/workbox-window.prod.mjs';
+
+      function createUpdateUIPrompt(callback) {
+        const notificationBox = document.getElementById(
+          'update-notification-message-box'
+        );
+        const elementList = document.getElementsByClassName('fade-in-box');
+        const updateNowButton = document.getElementById('update-now');
+        const laterButton = document.getElementById('later');
+
+        updateNowButton.addEventListener('click', function () {
+          notificationBox.classList.add('hidden');
+          callback.onAccept();
+        });
+        laterButton.addEventListener('click', function () {
+          notificationBox.classList.add('hidden');
+        });
+
+        for (const element of elementList) {
+          element.classList.add('hidden');
+        }
+        notificationBox.classList.remove('hidden');
+      }
+
+      if ('serviceWorker' in navigator) {
+        // Skip SW registration on the dev-server. The prod build ships sw.js;
+        // dev does not (see webpack.prod.js), and running Workbox under
+        // webpack-dev-server produces an infinite reload loop where the SW
+        // serves stale HTML while dev-server keeps live-reloading
+        // (Workbox GH #1790). Also unregister any stale SW that a previous
+        // dev session may have installed, so devs bitten before this fix get
+        // healed automatically on next refresh.
+        const isDevHost =
+          location.hostname === 'localhost' ||
+          location.hostname === '127.0.0.1' ||
+          location.hostname === '';
+        if (isDevHost) {
+          navigator.serviceWorker.getRegistrations().then((rs) => {
+            for (const r of rs) r.unregister();
+          });
+        } else {
+          const wb = new Workbox('../sw.js');
+          // Add an event listener to detect when the registered
+          // service worker has installed but is waiting to activate.
+          wb.addEventListener('waiting', (event) => {
+            const prompt = createUpdateUIPrompt({
+              onAccept: async () => {
+                // Assuming the user accepted the update, set up a listener
+                // that will reload the page as soon as the previously waiting
+                // service worker has taken control.
+                wb.addEventListener('controlling', (event) => {
+                  window.location.reload();
+                });
+                // Send a message telling the service worker to skip waiting.
+                // This will trigger the `controlling` event handler above.
+                wb.messageSW({ type: 'SKIP_WAITING' });
+              },
+            });
+          });
+
+          wb.register();
+        }
+      }
+    </script>
+  </body>
+</html>

@@ -91,9 +91,9 @@ var SK = {
 - `src/code-here/Lion_Eating_Bank_v12.md` §6 을 이 문서·`dayof/README.md`·v12_1 로 갱신. `bot-dev/README.md` 도구 표에 `eval_skill_real`·`skills/today`·`dayof/`·`sk_v2_*` 행 추가.
 
 ### P6. 팀 공유 (10분) — **완료 2026-09-05**
-- 팀 저장소 `jimin326/skku_pikachu` main 커밋 617a7a7: `competition/` 에 v12_1 .js/.md, 갱신된 이 문서, v12.md §6 갱신본, 폴더 README, `tools/`(jimin_pika `bot-dev/` 에서 같은 상대 경로로 복사한 당일 도구 사본 + 사용 안내). 총 23파일.
-- 도구는 엔진(`src/resources/js`)·상대 봇·`node_modules` 가 있는 jimin_pika 안에서만 돈다. 팀원은 `tools/README.md` 대로 jimin_pika 위에 덮어써서 쓴다.
-- 주의: 이 작업트리(jimin_pika `feature/thunder-recovery-v1`)의 도구·봇 변경은 아직 **로컬 미커밋** 상태다.
+- 팀 저장소 `jimin326/skku_pikachu` main: `competition/` 에 v12_1 .js/.md, 갱신된 이 문서, v12.md §6 갱신본, 폴더 README. 당일 도구는 저장소 루트 `bot-dev/`, 엔진은 `src/` 에 있다.
+- 이 저장소 하나로 전부 돈다. 팀원은 clone 후 `npm install` 한 번이면 되고, 다른 저장소를 받을 필요가 없다.
+- 검증: 빈 폴더에 clone → `npm install` → `node --no-warnings bot-dev/dayof/gates.mjs src/code-here/Lion_Eating_Bank_v12_1.js` 로 게이트 5개 전부 PASS 확인 (2026-09-05).
 
 ## 3. 당일 판단 트리 — 스킬 유형별 조치 (v12 줄 번호)
 
@@ -131,13 +131,14 @@ LLM 3회(회당 300자, 링크·코드 붙이기 불가):
 
 ## 4.1 당일 스텝 바이 스텝 — 처음 하는 사람 기준, 명령 그대로 복붙
 
-**전제.** 이 PC 의 `C:\SKKU\pika\jimin_pika` 에서 **Git Bash**(VS Code 터미널의 bash 도 됨)를 열고, 모든 명령을 그 폴더에서 친다. 새 레포는 `C:\SKKU\pika\newrepo` 에 받는다고 가정한다(다른 곳이면 아래 `NEW=` 한 줄만 바꾼다).
+**전제.** 이 저장소(skku_pikachu)를 받은 폴더에서 **Git Bash**(VS Code 터미널의 bash 도 됨)를 열고, 모든 명령을 그 폴더 루트에서 친다. 처음이면 `npm install` 을 먼저 한 번 돌린다. 새 레포는 `C:SKKUpika
+ewrepo` 에 받는다고 가정한다(다른 곳이면 아래 `NEW=` 한 줄만 바꾼다).
 PowerShell 을 쓰면 `ENGINE_ROOT=$NEW node …` 꼴이 안 되므로 먼저 `$env:ENGINE_ROOT="C:\SKKU\pika\newrepo"` 를 치고 뒤의 `ENGINE_ROOT=$NEW ` 접두어를 뗀다. 나머지 명령은 같다.
 역할이 셋이면 A=규칙·시뮬(3·5·6단계), B=봇 파일(4·8단계), C=실기·제출(1·2·7·9·10단계). 혼자면 번호 순서대로.
 
 ### 0단계 — 전날 준비 확인 (5분)
 ```bash
-cd /c/SKKU/pika/jimin_pika
+cd <이 저장소를 받은 폴더>
 node --version                                                                   # v18 이상이면 됨
 mkdir -p bot-dev/dayof/out bot-dev/submitted
 node bot-dev/dayof/gates.mjs Lion_Eating_Bank_v12_1 --skip shadow,sk,rule        # 정적 검사만. PASS 두 줄 + "SK = {...}" 가 보이면 정상

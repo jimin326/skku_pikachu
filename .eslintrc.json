@@ -1,0 +1,37 @@
+{
+  "env": {
+    "browser": true,
+    "worker": true,
+    "es6": true,
+    "node": true
+  },
+  "ignorePatterns": ["src/code-here/**", "src/resources/js/code/**", "src/resources/code/**"],
+  "extends": "eslint:recommended",
+  "globals": {
+    "Atomics": "readonly",
+    "SharedArrayBuffer": "readonly"
+  },
+  "parserOptions": {
+    "ecmaVersion": 2020,
+    "sourceType": "module"
+  },
+  "plugins": ["prettier"],
+  "rules": {
+    "prettier/prettier": [
+      "error",
+      {
+        "endOfLine": "auto"
+      }
+    ],
+    "no-constant-condition": ["error", { "checkLoops": false }],
+    "prefer-const": [
+      "error",
+      {
+        "destructuring": "any",
+        "ignoreReadBeforeAssign": false
+      }
+    ],
+    "spaced-comment": ["error", "always", { "block": { "balanced": true } }],
+    "eqeqeq": ["error", "always"]
+  }
+}

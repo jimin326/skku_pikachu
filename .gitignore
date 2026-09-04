@@ -1,0 +1,19 @@
+dist/
+node_modules/
+analytics.html
+.firebase/
+.firebaserc
+firebase.json
+.DS_Store
+
+# python
+__pycache__/
+.venv-rl/
+bot-dev/rl/runs/
+
+# bot-dev 출력물 (스크립트 재실행으로 재생성)
+bot-dev/*.log
+bot-dev/harness/results_*.json
+
+# 당일 도구 산출물(diff·Chrome 결과·빌드 dist)
+bot-dev/dayof/out/

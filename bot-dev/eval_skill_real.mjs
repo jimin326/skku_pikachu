@@ -6,8 +6,8 @@
  * 출력: 조건(OFF/ON)별 승-패·랠리·스킬로 끝난 랠리(how==='skill')·봇 발동 수(decide.__skState.fired)·가짜 규칙 발동/소모·평균 프레임, 좌우 분리
  */
 import path from 'node:path'; import fs from 'node:fs';
-import { pathToFileURL } from 'node:url';
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '..');
+import { pathToFileURL, fileURLToPath } from 'node:url';
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const { RealGame, BotInput, setCustomRng, ENGINE_ROOT } = await import(pathToFileURL(path.join(ROOT, 'bot-dev/sim_real.mjs')));
 const args = process.argv.slice(2);
 const opt = (k) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : null; };

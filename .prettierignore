@@ -1,0 +1,8 @@
+# Verbatim participant-facing example bot sources (JS & Python).
+# These files are meant to be copy-pasted by participants, so they must not
+# be silently reformatted by prettier -- variable names, indentation, and
+# any intentional idioms should ship exactly as written.
+# Kept in sync with .eslintrc.json's ignorePatterns.
+src/code-here/**
+src/resources/js/code/**
+src/resources/code/**
