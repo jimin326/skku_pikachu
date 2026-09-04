@@ -2223,6 +2223,9 @@ var MixedRoute = (function () {
     // Prefer it only after repeated observed receives; no speed is fabricated.
     if(alternate&&Resistance.active())score+=18000-window*800+(preferred?4000:0);
     if(graze&&Resistance.active())score+=6000-(f-wallFrame)*1500;
+    // Reward one setup in a completed attack, never repeated tossing.
+    // Leave the existing anti-resistance wall attack selection untouched.
+    if(!Resistance.active()&&n.setups>0&&n.touches<5)score+=20000;
     return score;
   }
   function potential(n){
