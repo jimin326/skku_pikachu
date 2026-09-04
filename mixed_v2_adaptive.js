@@ -2081,15 +2081,16 @@ var MixedRoute = (function () {
     lastAction:{x:0,y:0,hit:0}, expected:null, path:[], value:-Infinity, waiting:false,
     transition:null, latency:1 };
   var audit={ searches:0, cacheHits:0, routeActions:0, releases:0, deviations:0,
-    starts:0, receiveStarts:0, protected:0, nodes:0, latencyChanges:0, budgetStops:0, last:null };
+    backwallPlans:0, starts:0, receiveStarts:0, protected:0, nodes:0, latencyChanges:0, budgetStops:0, last:null };
   function clamp(x,a,b){return x<a?a:x>b?b:x;}
   function copy(n){return {x:n.x,y:n.y,vy:n.vy,state:n.state,frame:n.frame,delay:n.delay,
     diving:n.diving,lying:n.lying,bx:n.bx,by:n.by,bvx:n.bvx,bvy:n.bvy,power:n.power,
     collision:n.collision,touches:n.touches,setups:n.setups,f:n.f,down:n.down,
-    dead:n.dead,exit:n.exit,uncertain:n.uncertain,flat:n.flat,netTouch:n.netTouch,hitX:n.hitX,hitY:n.hitY,hitFrame:n.hitFrame,
+    dead:n.dead,exit:n.exit,uncertain:n.uncertain,flat:n.flat,netTouch:n.netTouch,backToss:n.backToss,backWall:n.backWall,backFinish:n.backFinish,hitX:n.hitX,hitY:n.hitY,hitFrame:n.hitFrame,
     parent:n.parent,action:n.action,rank:0};}
   function world(n){
     n.bvy=clamp(n.bvy,-MAXV,MAXV);
+    if(n.bx+n.bvx<0&&n.backToss)n.backWall=true;
     if(n.bx+n.bvx<0 || n.bx+n.bvx>GW)n.bvx=-n.bvx;
     if(n.by+n.bvy<0)n.bvy=1;
     if(Math.abs(n.bx-NET)<NH && n.by>NT){n.netTouch=true;
@@ -2125,6 +2126,7 @@ var MixedRoute = (function () {
     }
     var overlap=Math.abs(n.bx-n.x)<=PH && Math.abs(n.by-n.y)<=PH;
     if(overlap && !n.collision){
+      var returnedFromBack=n.backWall&&n.bx>=NET-2*PH&&n.bvy>0;
       if(n.bx<n.x)n.bvx=-Math.floor(Math.abs(n.bx-n.x)/3);
       else if(n.bx>n.x)n.bvx=Math.floor(Math.abs(n.bx-n.x)/3);
       // The actual engine randomizes zero horizontal speed. Such a branch
@@ -2138,6 +2140,9 @@ var MixedRoute = (function () {
         n.down=a.y===1;n.flat=a.y===0;n.netTouch=false;n.hitX=n.bx;n.hitY=n.by;n.hitFrame=n.f;
         if(a.y<0)n.setups++;
       }else {n.down=false;n.flat=false;if(n.bvy<0)n.setups++;}
+      n.backFinish=!!(returnedFromBack&&n.power);
+      if(!n.power&&n.bvx<0){n.backToss=true;n.backWall=false;}
+      else if(!returnedFromBack){n.backToss=false;n.backWall=false;}
       n.touches++;n.collision=true;
       if(n.touches>=5)n.dead=true;
     }else if(!overlap)n.collision=false;
@@ -2167,7 +2172,7 @@ var MixedRoute = (function () {
     n.collision=Math.abs(n.bx-n.x)<=PH&&Math.abs(n.by-n.y)<=PH;
     if(prior && matches(n,prior)){
       n.vy=prior.vy;n.delay=prior.delay;n.collision=prior.collision;
-      n.touches=prior.touches;n.setups=prior.setups;
+      n.touches=prior.touches;n.setups=prior.setups;n.backToss=prior.backToss;n.backWall=prior.backWall;n.backFinish=prior.backFinish;
     }
     else if(prior)n.touches=prior.touches; // conservative budget after uncertainty
     return n;
@@ -2202,6 +2207,7 @@ var MixedRoute = (function () {
     return list;
   }
   function finish(n,oppX){
+    if(n.dead||n.touches>=5)return -Infinity;
     if(!n.power || (!n.down && !Resistance.active()))return -Infinity;
     var b=copy(n),f=0,window=0,wall=false,ceiling=false,wallFrame=-1;
     b.exit=false;
@@ -2223,9 +2229,10 @@ var MixedRoute = (function () {
     // Prefer it only after repeated observed receives; no speed is fabricated.
     if(alternate&&Resistance.active())score+=18000-window*800+(preferred?4000:0);
     if(graze&&Resistance.active())score+=6000-(f-wallFrame)*1500;
-    // Reward one setup in a completed attack, never repeated tossing.
+    // Prefer a completed own-half setup sequence; the fifth contact loses.
+    // Two setups are enough: extra tossing receives no additional reward.
     // Leave the existing anti-resistance wall attack selection untouched.
-    if(!Resistance.active()&&n.setups>0&&n.touches<5)score+=20000;
+    if(!Resistance.active()&&n.setups>0&&n.touches<=4)score+=(n.setups>=2?55000:20000);
     return score;
   }
   function potential(n){
@@ -2242,14 +2249,14 @@ var MixedRoute = (function () {
     for(var lag=0;lag<memory.latency;lag++)tick(initial,old);
     if(initial.dead||initial.exit)return null;
     initial.parent=null;
-    var beam=[initial],best=null;
+    var beam=[initial],best=null,bestBack=null;
     for(var depth=0;depth<DEPTH;depth++){
       // Resource budget, not attack timing: never wait on an unfinished search
       // or execute a partial route. Return GD's action if no complete route exists.
       if(clock()-started>24){audit.budgetStops++;break;}
       var next=[],seen=Object.create(null);
       for(var i=0;i<beam.length;i++){
-        if((i&3)===0 && clock()-started>24){audit.budgetStops++;return best;}
+        if((i&3)===0 && clock()-started>24){audit.budgetStops++;return bestBack||best;}
         var node=beam[i],opts=actions(node);
         for(var j=0;j<opts.length;j++){
           var child=copy(node);child.parent=node;child.action=opts[j];
@@ -2257,11 +2264,14 @@ var MixedRoute = (function () {
           audit.nodes++;
           if(child.dead)continue;
           if(child.exit){
+            if(child.backFinish&&child.touches>3)continue;
             var score=finish(child,oppX);
-            if(score>-Infinity&&(!best||score>best.score)){
+            if(score>-Infinity&&((!best||score>best.score)||(child.backFinish&&child.touches<=3&&(!bestBack||score>bestBack.score)))){
               var path=[],cursor=child;
               while(cursor.parent){path.push(cursor.action);cursor=cursor.parent;}
-              path.reverse();best={path:path,score:score,down:child.down,setups:child.setups};
+              path.reverse();var found={path:path,score:score,down:child.down,setups:child.setups,backwall:!!child.backFinish};
+              if(!best||score>best.score)best=found;
+              if(child.backFinish&&child.touches<=3&&(!bestBack||score>bestBack.score))bestBack=found;
             }
             continue;
           }
@@ -2276,11 +2286,12 @@ var MixedRoute = (function () {
       var buckets=Object.create(null),groups=[];
       for(var q=0;q<next.length;q++){
         var item=next[q];
-        var phase=[item.touches,item.state===0?0:1,Math.sign(item.bvy),Math.sign(item.vy),Math.floor(item.bvx/WALK)].join(',');
+        var phase=[item.backWall?2:item.backToss?1:0,item.touches,item.state===0?0:1,Math.sign(item.bvy),Math.sign(item.vy),Math.floor(item.bvx/WALK)].join(',');
         if(!buckets[phase]){buckets[phase]=[];groups.push(buckets[phase]);}
         buckets[phase].push(item);
       }
       beam=[];
+      for(var bi=0;bi<next.length&&beam.length<Math.floor(WIDTH/2);bi++)if(next[bi].backWall||next[bi].backToss)beam.push(next[bi]);
       for(var layer=0;beam.length<WIDTH;layer++){
         var added=false;
         for(var g=0;g<groups.length&&beam.length<WIDTH;g++){
@@ -2290,7 +2301,7 @@ var MixedRoute = (function () {
       }
       if(!beam.length)break;
     }
-    return best;
+    return bestBack||best;
   }
   function step(s,base){
     var wasAlternative=Resistance.active(),oldMode=Resistance.mode();
@@ -2326,7 +2337,7 @@ var MixedRoute = (function () {
       }
       if(observed){
         n.vy=observed.vy;n.delay=observed.delay;n.collision=observed.collision;
-        n.touches=observed.touches;n.setups=observed.setups;
+        n.touches=observed.touches;n.setups=observed.setups;n.backToss=observed.backToss;n.backWall=observed.backWall;n.backFinish=observed.backFinish;
         if(selected!==memory.latency){
           memory.latency=selected;memory.path=[];audit.latencyChanges++;
           memory.expected=observed;
@@ -2363,7 +2374,7 @@ var MixedRoute = (function () {
       if(!memory.path.length){
         audit.searches++;
         var plan=search(n,group,right?GW-s.opp.x:s.opp.x,old);
-        if(plan){memory.path=plan.path;memory.value=plan.score;}
+        if(plan){memory.path=plan.path;memory.value=plan.score;if(plan.backwall)audit.backwallPlans++;}
       }else audit.cacheHits++;
       if(memory.path.length){
         var a=memory.path.shift();chosen={x:right?-a.x:a.x,y:a.y,hit:a.hit};
