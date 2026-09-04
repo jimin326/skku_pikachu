@@ -1,7 +1,9 @@
 # 당일 공개 대비 계획 (Lion_Eating_Bank_v12 기준, 2026-09-05)
 
 근거: `bot-dev/SKILL_PREDICTION.md`(팀 main 과 동일), 심층 조사 PDF(`Lion_Eating_Bank_v11_당일스킬_심층조사.pdf`), v12 코드, 엔진 소스(`src/resources/js`), `COMPETITION_GUIDE.md`, `V11_VERIFY_REPORT_2026-09-05.md` B1~B7.
-줄 번호는 전부 **v12** 기준(`src/code-here/Lion_Eating_Bank_v12.js`). 검증 수치 없이 쓴 문장은 "추론"으로 표시했다.
+줄 번호는 §1·§3 은 **v12** 기준(`src/code-here/Lion_Eating_Bank_v12.js`), §4.1 스텝 바이 스텝은 **제출 후보 v12_1** 기준이다(어댑터 블록이 커져 §0 노브 이후가 +18행 밀린다). 검증 수치 없이 쓴 문장은 "추론"으로 표시했다.
+
+> **갱신 2026-09-05 밤**: 사전 작업 P2~P6 완료(§2 각 항목에 결과). 당일 실행은 **§4.1 스텝 바이 스텝**(명령 복붙용)을 따르고, 판단이 필요할 때 §3 표를 본다. 팀 저장소 `competition/` 에 같은 문서·봇·도구 사본이 있다.
 
 ## 0. 결론 다섯 줄
 
@@ -88,8 +90,10 @@ var SK = {
 - `bot-dev/RUNBOOK_당일.md` 는 3시간·v9 템플릿(`skillPolicy`, `render9.mjs`) 기준이라 폐기. 5개 문서(COMPETITION_GUIDE·SKILL_PREDICTION·TEAM_VERIFY_PROMPT·V11_VERIFY_REPORT·이 문서)가 파일명을 가리키므로 삭제 대신 **폐기 머리말 + 새 절차 안내 스텁**으로 교체(옛 내용은 Git 이력). 유효한 원칙 3개(5줄 받아적기·시간 없으면 동결판·제출 뒤 수정 금지)만 남겼다.
 - `src/code-here/Lion_Eating_Bank_v12.md` §6 을 이 문서·`dayof/README.md`·v12_1 로 갱신. `bot-dev/README.md` 도구 표에 `eval_skill_real`·`skills/today`·`dayof/`·`sk_v2_*` 행 추가.
 
-### P6. 팀 공유 (10분)
-- 이 문서 + `dayof/` + `sk_v2_patch.mjs` + `eval_skill_real.mjs` 를 `skku-pikachu` main 에 push. 팀 저장소에는 검증 도구가 없다(keunhyung 리뷰 #9).
+### P6. 팀 공유 (10분) — **완료 2026-09-05**
+- 팀 저장소 `jimin326/skku_pikachu` main 커밋 617a7a7: `competition/` 에 v12_1 .js/.md, 갱신된 이 문서, v12.md §6 갱신본, 폴더 README, `tools/`(jimin_pika `bot-dev/` 에서 같은 상대 경로로 복사한 당일 도구 사본 + 사용 안내). 총 23파일.
+- 도구는 엔진(`src/resources/js`)·상대 봇·`node_modules` 가 있는 jimin_pika 안에서만 돈다. 팀원은 `tools/README.md` 대로 jimin_pika 위에 덮어써서 쓴다.
+- 주의: 이 작업트리(jimin_pika `feature/thunder-recovery-v1`)의 도구·봇 변경은 아직 **로컬 미커밋** 상태다.
 
 ## 3. 당일 판단 트리 — 스킬 유형별 조치 (v12 줄 번호)
 
@@ -124,6 +128,173 @@ LLM 3회(회당 300자, 링크·코드 붙이기 불가):
 1. T+5~15: "첨부한 `skill/setup.js` 발췌와 샘플 봇 return 문만 근거로, 발동 키·값 타입·필수 조건·소모 시점(입력/접촉)·지속 프레임을 표로. 추측은 분리." (키를 코드로 못 읽을 때만)
 2. T+15~30: "구·신 `physics.js` diff 요약에서 공/선수 상태 전이·틱 순서·상수 변화만 골라 낙하지점 예측과 오픈루프 서브에 미치는 영향을 300자 이내로."
 3. 예비: F12 예외 메시지 1줄 해석, 또는 "이 대응이 규칙상 실점인가".
+
+## 4.1 당일 스텝 바이 스텝 — 처음 하는 사람 기준, 명령 그대로 복붙
+
+**전제.** 이 PC 의 `C:\SKKU\pika\jimin_pika` 에서 **Git Bash**(VS Code 터미널의 bash 도 됨)를 열고, 모든 명령을 그 폴더에서 친다. 새 레포는 `C:\SKKU\pika\newrepo` 에 받는다고 가정한다(다른 곳이면 아래 `NEW=` 한 줄만 바꾼다).
+PowerShell 을 쓰면 `ENGINE_ROOT=$NEW node …` 꼴이 안 되므로 먼저 `$env:ENGINE_ROOT="C:\SKKU\pika\newrepo"` 를 치고 뒤의 `ENGINE_ROOT=$NEW ` 접두어를 뗀다. 나머지 명령은 같다.
+역할이 셋이면 A=규칙·시뮬(3·5·6단계), B=봇 파일(4·8단계), C=실기·제출(1·2·7·9·10단계). 혼자면 번호 순서대로.
+
+### 0단계 — 전날 준비 확인 (5분)
+```bash
+cd /c/SKKU/pika/jimin_pika
+node --version                                                                   # v18 이상이면 됨
+mkdir -p bot-dev/dayof/out bot-dev/submitted
+node bot-dev/dayof/gates.mjs Lion_Eating_Bank_v12_1 --skip shadow,sk,rule        # 정적 검사만. PASS 두 줄 + "SK = {...}" 가 보이면 정상
+ls "/c/Program Files/Google/Chrome/Application/chrome.exe" "/c/Users/지민/AppData/Local/Temp/codex-playwright-core/node_modules/playwright-core" > /dev/null && echo chrome-ok
+```
+- 대회 사이트 제출 내역에 **v12 가 올라가 있는지** 확인한다. 없으면 `src/code-here/Lion_Eating_Bank_v12.js` 를 `사자먹는은행.js` 로 올린다. 이게 당일 후퇴판이다.
+- 종이나 메모장에 **5줄 시트**를 만들어 둔다: ① 새 필드 이름·위치·타입·범위 ② 충전 조건·만충치·리셋 ③ 발동 키·값·소모 시점(입력 즉시 / 접촉 시) ④ 효과·지속 ⑤ 규칙상 실점이 되는 행동.
+
+### 1단계 — 새 레포 받기 (T+0, 2분)
+```bash
+git clone <공개된 URL> /c/SKKU/pika/newrepo          # zip 으로 주면 /c/SKKU/pika/newrepo 에 풀기
+NEW=/c/SKKU/pika/newrepo
+(cd $NEW && npm install) &                             # 백그라운드. 3~6단계는 이것과 무관하게 진행. 7단계(Chrome) 전에는 끝나 있어야 함
+git -C $NEW rev-parse HEAD > bot-dev/dayof/out/hashes.txt 2>/dev/null; sha256sum src/code-here/Lion_Eating_Bank_v12_1.js >> bot-dev/dayof/out/hashes.txt
+```
+
+### 2단계 — 제공 봇·우리 봇 자리 잡기 (T+2, 2분)
+```bash
+ls $NEW/src/code-here/                                 # 제공 스킬 봇 파일을 찾는다 (예: SkillBot.js, sample_skill.py)
+cp $NEW/src/code-here/<제공봇 파일> $NEW/src/code-here/Staff_v1.js    # 이름이 <팀>_v<n>.js 꼴이 아니면 규약 이름으로 복사 (드롭다운 등록 조건)
+cp $NEW/src/code-here/Staff_v1.js src/code-here/                        # 우리 시뮬에서 상대로 쓰기 위해 우리 레포에도
+cp src/code-here/Lion_Eating_Bank_v12_1.js $NEW/src/code-here/          # 우리 봇을 새 레포에 (7단계 빌드에 들어감)
+```
+제공 봇이 파이썬(.py)이면 우리 시뮬(sim_real)은 그 봇을 못 돌린다. 6단계는 `OurBot_v12` 상대로만 하고, 제공 봇과의 대결은 7단계 Chrome 에서만 본다(`Staff_v1.py` 로 복사).
+
+### 3단계 — 무엇이 바뀌었나: diff_engine (T+3, 5분, A)
+```bash
+node bot-dev/dayof/diff_engine.mjs $NEW | tee bot-dev/dayof/out/diff_console.txt
+```
+화면이 길다. **읽는 순서**와 5줄 시트에 적는 법:
+1. 맨 아래 **§5 제공 봇 return 줄**: `return { x:…, y:…, hit: 1, claw: 1 }` 처럼 x·y·hit 외의 키가 **발동 키**, 그 값이 **발동 값**(③). 그 return 을 내는 `if` 조건이 만충 조건·발동 조건의 힌트(②③). 봇이 읽는 스냅샷 경로(`s.self.claw.gauge` 등)가 ① 의 후보.
+2. **§4 skill/setup.js 전문**: `latestAction.<이름>` 이 발동 키(③ 재확인). 효과(④)는 무엇을 쓰는지로 판정 → `ball.xVelocity/yVelocity/x/y` 를 한 번 쓰면 **A(공 물리 변조)**, 매 프레임 쓰거나 `framesLeft`·`duration` 카운터가 있으면 **A2(지속형)**, 상대 `keyboardArray[..]` 입력을 덮거나 `state = 4`·`lyingDown…` 이면 **B(스턴)**, `awardPoint` 면 **C(판정형)**, `player.x/y` 나 이동·점프 상수를 바꾸면 **D(자기 강화)**, 공을 멈추거나 잡아 두면 **E(잡기)**.
+3. **§4 skill/gauge.js 전문**: 충전 조건(②) — `isCollisionWithBallHappened`(접촉마다), `isPowerHit`(파워히트마다), 랠리 프레임(시간), 득점. 만충치 상수. 소모(`= 0`, `consume`)가 **키 입력 처리 안**이면 "입력 소모", **접촉 처리 안**이면 "접촉 소모"(③).
+4. **§1 botContract.js diff**: 스냅샷에 새로 붙는 필드 이름·위치(①). `self.gauge` 처럼 숫자인지, `self.claw` 처럼 객체(null 가능)인지 적는다.
+5. **§1 botInput.js·botWorker.js diff**: 반환 객체 검사가 바뀌었는지. x·y·hit 외 키를 **거부**하게 바뀌었으면 우리 발동은 불가 → 4단계에서 `fire: 0` 고정.
+6. **§0 상수표·§1 physics.js diff**: `!!` 가 하나라도 있으면 물리가 바뀐 것 → 5단계 thunder_check 를 꼭 보고, §3 표의 A2·D 열을 읽는다. `!!` 없고 physics.js "동일"이면 물리 동일.
+7. ⑤ 규칙상 실점 행동은 가이드 문서(사이트)에서 읽는다. 코드로는 `rules/` 디렉터리에 새 파일이 생겼는지(§2 "새 레포에만") 본다.
+
+### 4단계 — 우리 봇 노브 채우기 (T+8, 3분, B)
+`src/code-here/Lion_Eating_Bank_v12_1.js` 를 열어 **33~40행** `SK` 객체를 5줄 시트대로 채운다(VS Code: `Ctrl+G` → 33).
+```js
+// 기본값 (그대로 두면 v12 와 동일하게 움직인다)
+var SK = {
+  on:     false,
+  key:    'skill', value: 1,
+  gauge:  'self.gauge', ogauge: 'opp.gauge',
+  full:   100,
+  owner:  'AC',
+  fire:   0, guard: 0, latch: 1, resync: 0
+};
+// 채운 예 — 발동 키 claw=1, 게이지가 self.claw.gauge 숫자, 만충 100 이라면
+var SK = {
+  on:     true,
+  key:    'claw', value: 1,
+  gauge:  'self.claw.gauge', ogauge: 'opp.claw.gauge',
+  full:   100,
+  owner:  'AC',
+  fire:   0, guard: 0, latch: 1, resync: 0        // fire 는 6단계 결과를 보고 1 로. guard·resync 는 건드리지 않는다
+};
+```
+- 게이지가 `true/false` 면 `full` 은 아무 값이어도 된다(`true` 면 만충으로 본다). 객체 `{ready:true}` 꼴도 그대로 된다. 경로 중간이 null 이면 "만충 아님"으로 처리되니 예외는 안 난다.
+- ⑤ 규칙상 금지 행동이 있으면 **62행** 주석 자리에 한 줄(예: 지상 점프 금지 `if (s.self.state === 0 && a.y === -1) a.y = 0;`, 다이빙 금지 `if (s.self.state === 0 && a.hit === 1 && a.x !== 0 && a.y !== -1) a.hit = 0;`).
+저장 후 확인:
+```bash
+node bot-dev/dayof/gates.mjs Lion_Eating_Bank_v12_1 --skip shadow,sk,rule        # "로드 + 최상위 decide: ok" 와 SK 값이 방금 적은 대로면 OK. 문법 오류면 여기서 잡힌다
+```
+
+### 5단계 — 썬더 유지/끄기: thunder_check (T+10, 2분, A)
+```bash
+node --no-warnings bot-dev/dayof/thunder_check.mjs $NEW
+```
+마지막 줄 `판정:` 만 본다.
+- `THUNDER_SERVE=1 유지` → 그대로.
+- `THUNDER_SERVE=0 으로` → 14행을 바꾼다: `sed -i 's/^const THUNDER_SERVE = 1;/const THUNDER_SERVE = 0;/' src/code-here/Lion_Eating_Bank_v12_1.js` (또는 에디터에서 `1` → `0`). 미련 두지 않는다. 물리가 바뀌었으면 시퀀스는 무의미하다.
+- 유지 판정인데 3단계에서 physics `!!` 가 있었다면, 7단계 Chrome 로그에 `썬더 포기: 궤적 이탈` 이 반복되는지 한 번 더 본다. 반복되면 0.
+
+### 6단계 — 스킬 재현 + fire 결정: eval_skill_real (T+13, 10분, A)
+목표: 새 물리 위에서 **스킬 OFF vs ON**, 그리고 우리 봇 `fire 0 vs 1` 을 같은 시드로 비교한다. 두 갈래 중 하나.
+
+**(가) 새 레포 setup.js 를 그대로 붙인다 — 정확해서 권장.** `bot-dev/skills/today.mjs` 맨 위와 `init`·`extend` 를 이렇게 바꾼다(함수 이름 `setUpSkill`, 인자 순서, 반환값은 3단계 §4 전문에서 확인해 맞춘다):
+```js
+// today.mjs 맨 위에 추가
+import { pathToFileURL } from 'node:url';
+const ROOTDIR = (process.env.ENGINE_ROOT || '').replace(/[\\/]src$/, '');
+const setupMod = ROOTDIR ? await import(pathToFileURL(ROOTDIR + '/src/resources/js/skill/setup.js').href) : null;
+// default export 안의 init / extend 를 교체, filterInput·observe 는 통째로 지운다(그들 코드가 효과를 낸다)
+  init(ctx, game) { ctx.sk = setupMod.setUpSkill(game.pikaVolleyShim(), game.tickerShim(), game.operatorShim()); },
+  extend(snap, side, game, ctx) {
+    const i = side === 'LEFT' ? 0 : 1;
+    // setup.js 의 반환값(게이지 객체 등)에서 읽어 3단계 ① 의 실제 필드 이름으로 스냅샷에 넣는다. 예:
+    snap.self.gauge = ctx.sk[i].value; snap.opp.gauge = ctx.sk[1 - i].value;
+  },
+```
+실행하다 `… is not a function` / `Cannot read properties of undefined (reading 'xxx')` 가 나오면 setup.js 가 우리 shim 에 없는 필드 `xxx` 를 읽는 것 → `bot-dev/sim_real.mjs` 의 `pikaVolleyShim()` 에 `get xxx() { return g.<대응값>; },` 한 줄을 추가한다.
+
+**(나) 못 붙이면 CFG 로 흉내낸다(10분 안에 안 되면 이쪽).** 파일은 건드리지 말고 환경변수로:
+```bash
+export SKILL_CFG='{"TYPE":"A","KEY":"claw","FULL":100,"CHARGE":25,"PRESS_CONSUME":0,"SPEED_MULT":1.5}'   # TYPE A/B/C, 숫자는 3단계에서 읽은 값
+```
+그 다음 실행(둘 다 공통):
+```bash
+ENGINE_ROOT=$NEW node --no-warnings bot-dev/eval_skill_real.mjs ./skills/today.mjs Lion_Eating_Bank_v12_1 Staff_v1   2 --sk on=1,fire=0
+ENGINE_ROOT=$NEW node --no-warnings bot-dev/eval_skill_real.mjs ./skills/today.mjs Lion_Eating_Bank_v12_1 Staff_v1   2 --sk on=1,fire=1
+ENGINE_ROOT=$NEW node --no-warnings bot-dev/eval_skill_real.mjs ./skills/today.mjs Lion_Eating_Bank_v12_1 OurBot_v12 2 --sk on=1,fire=1
+```
+읽는 법(각 명령의 `스킬 ON` 줄): `봇 예외` 는 0 이어야 한다(아니면 4단계 gauge 경로 오타나 62행 필터 문법). `봇 발동` 은 fire=1 에서 1 이상이어야 한다(0 이면 만충 판정이 안 되는 것 → `full`·경로 재확인). `새 필드 […]` 가 3단계 ① 과 같아야 한다.
+**결정**: `fire=1` 의 승수가 `fire=0` 보다 많으면 39행 `fire: 1`, 같거나 적으면 `fire: 0` 그대로. 스킬 재현이 (가)·(나) 둘 다 실패했으면 비교할 근거가 없으니 `fire: 0`.
+
+### 7단계 — Chrome 실기: harness_dayof (T+25, 8분, C)
+1단계의 `npm install` 이 끝났는지 확인한 뒤:
+```bash
+node bot-dev/dayof/harness_dayof.mjs $NEW --opp Staff_v1.js            # 빌드(약 10초) → 서버 → 좌우 2경기 병렬(10점, 약 6~8분) → 요약
+```
+요약에서 보는 것 (경기마다 한 블록):
+- `점수 a:b 종료` — 미종료면 시간 초과·멈춤. `상태 ["봇 코드 로드됨","봇 코드 로드됨"]` 이어야 한다.
+- `새 필드 로그` — **실제 스냅샷 필드의 진실**이다. 3단계 ① 과 다르면 ① 을 이걸로 바꾸고 4단계 `gauge`·`ogauge` 를 고친다. `첫 non-null` 줄에 객체의 키가 찍힌다.
+- `스킬 발동 N` — 4단계에서 `fire: 1` 이면 1 이상이어야 한다. 0 이면 만충 판정 실패.
+- `!! 오류 줄` 이 있으면 안 된다(`decide() failed`, `PAGEERROR`). `timeouts 0`, `invalid 0`, `p99` 는 40ms 아래.
+- `썬더 로그` 에 `썬더 포기: 궤적 이탈` 이 여러 번이면 5단계로 돌아가 14행을 0 으로.
+하네스가 `#bot-setup…` 같은 UI 요소를 못 찾아 죽으면(새 레포 UI 변경) 수동으로: `cd $NEW && npm start` → 터미널에 뜨는 주소를 브라우저로 → 봇 설정에서 왼쪽 `Lion_Eating_Bank v12_1`, 오른쪽 `Staff v1` → 적용 → F12 Console 에 `OurBot` 필터. 좌우 바꿔 한 번 더.
+
+### 8단계 — 결과를 보고 한 줄 수정 (T+35, 5분, B) — 필요할 때만
+§3 표의 유형별 조치. v12_1 줄 번호:
+| 증상 | 수정 |
+|---|---|
+| 스킬 뒤 공 낙하점을 우리가 오판(A·A2) | 1714행 `var landingX = ball.expectedLandingPointX;` → `var landingX = ballAfter(ball, framesToLanding(ball)).x;` |
+| 상대 활성 뒤 수비가 늦음 | 431행 `REACT: 4,` → `REACT: 5,` |
+| 우리 스파이크가 자주 받힘(D 자기 강화) | 425행 `MARGIN: 6,` → `MARGIN: 12,` (심하면 `999` = 확정킬 대부분 포기) |
+| 상대가 순간이동으로 킬 지점에 옴 | 17행 `BANDIT_MODES = 'thunder,ac,flat'` → `'flat,ac,thunder'` |
+| 규칙상 실점 행동이 우리에게서 나옴 | 62행 자리에 필터 한 줄(4단계 예시) |
+고친 뒤 6단계 명령을 한 번(1분) 돌려 예외 0·승수 확인. 시간이 있으면 7단계도 한 번 더.
+
+### 9단계 — 게이트 (T+45, 5분, C)
+```bash
+ENGINE_ROOT=$NEW node --no-warnings bot-dev/dayof/gates.mjs src/code-here/Lion_Eating_Bank_v12_1.js
+```
+- `PASS` 5줄 + `게이트 전부 통과 → 제출 가능` 이면 10단계.
+- `shadow_diff … 불일치 N` 이 0 이 아닌데 `guard`·`resync` 를 켜지 않았다면 어댑터 밖을 잘못 건드린 것(8단계 한 줄 수정은 불일치를 내는 것이 정상 — 그 경우 정보용으로 보고 나머지 PASS 를 본다).
+- 하나라도 FAIL 이고 5분 안에 원인을 못 찾으면 **제출하지 않는다**. 사이트의 v12 가 그대로 쓰인다.
+
+### 10단계 — 제출 (T+50, 3분, C)
+```bash
+cp src/code-here/Lion_Eating_Bank_v12_1.js "bot-dev/submitted/사자먹는은행_$(date +%H%M).js"
+cp src/code-here/Lion_Eating_Bank_v12_1.js "/c/SKKU/pika/사자먹는은행.js"        # 이 파일을 사이트에 업로드
+```
+사이트에서 `사자먹는은행.js` 업로드 → 제출 내역에서 파일명·시각 확인 → **코드 프리즈**(이후 파일을 건드리지 않는다).
+
+### 시간이 없을 때 최소 경로 (15분)
+3단계 diff_engine → 5단계 thunder_check(필요하면 14행 0) → 9단계 gates → 전부 PASS 면 제출, 아니면 v12 유지. 스킬 사용(`fire`)은 포기하고 `on: false` 그대로 둔다(이러면 v12 와 동작이 같으므로 굳이 올릴 이유도 없다 — 썬더를 껐을 때만 의미가 있다).
+
+### 자주 나는 문제
+- `ENGINE_ROOT 에서 resources/js/physics.js 를 찾을 수 없음` → `NEW` 가 새 레포 **루트**(또는 그 `src`)를 가리키는지, 경로에 한글·공백이 있으면 따옴표.
+- eval 의 `봇 예외 > 0` → 4단계에서 고친 줄의 문법(세미콜론·괄호). `node bot-dev/dayof/gates.mjs Lion_Eating_Bank_v12_1 --skip shadow,sk,rule` 로 로드 오류 메시지를 본다.
+- eval 의 `봇 발동 0`(fire=1 인데) → 만충 판정 실패: `gauge` 경로가 새 필드 로그와 다르거나 `full` 이 너무 큼. 6단계 `새 필드 […]` 출력과 대조.
+- Chrome `새 스냅샷 필드: 없음` 인데 문서엔 있다 → 필드가 활성 중에만 생기는지(`새 필드 … 첫 등장` 이 나중에 찍힘) 1세트 끝까지 본다. 끝까지 없으면 스냅샷이 아닌 다른 경로(예: `config`)다 → 3단계 §1 botContract diff 를 다시 읽는다.
+- PowerShell 에서 `ENGINE_ROOT=…` 가 명령으로 인식 안 됨 → `$env:ENGINE_ROOT="C:\SKKU\pika\newrepo"` 를 먼저 한 번 치고 접두어를 뗀다. `export SKILL_CFG=…` 도 `$env:SKILL_CFG='{…}'` 로.
+- 하네스 `playwright-core 를 못 찾음` → `NODE_PATH="/c/Users/지민/AppData/Local/Temp/codex-playwright-core/node_modules" node bot-dev/dayof/harness_dayof.mjs …` 처럼 앞에 붙인다. 다른 PC 면 그 PC 의 playwright-core 위치.
 
 ## 5. 제출 게이트 (전부 통과해야 새 파일을 올린다)
 

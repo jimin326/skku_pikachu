@@ -30,7 +30,7 @@ ENGINE_ROOT=<NEW> node --no-warnings bot-dev/eval_skill_real.mjs ./skills/today.
 node --no-warnings bot-dev/dayof/thunder_check.mjs <NEW>                                                                    # THUNDER_SERVE 판정(불일치 0 이어야 유지)
 node bot-dev/dayof/harness_dayof.mjs <NEW> --opp <제공봇.js>                                                                 # 빌드 + Chrome 좌우 2경기(병렬) + F12 요약. 6~8분
 ```
-B: `Lion_Eating_Bank_v12_1.js` 27~40행 `SK` 에 key·value·gauge·ogauge·full 채우고 `on: true, fire: 0`. `THUNDER_SERVE`(14행)는 thunder_check 결과대로.
+B: `Lion_Eating_Bank_v12_1.js` 33~40행 `SK` 에 key·value·gauge·ogauge·full 채우고 `on: true, fire: 0`. `THUNDER_SERVE`(14행)는 thunder_check 결과대로. 자세한 복붙 절차는 `bot-dev/DAYOF_PLAN_2026-09-05.md` §4.1.
 
 ## T+15 (A) — 스킬 재현
 - 새 레포 `skill/setup.js` 가 `setUpSkill(pikaVolley, ticker, operator)` 꼴이면 `bot-dev/skills/today.mjs` 의 `init` 에서 shim 으로 직접 호출(파일 머리말 예시). 필드명이 다르면 `bot-dev/sim_real.mjs` 의 `pikaVolleyShim` 에 getter 추가.

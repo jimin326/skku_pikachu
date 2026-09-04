@@ -45,5 +45,5 @@ for (const useSkill of [false, true]) {
     if (!st.fieldLog && bot.__state && bot.__state.fieldLog) st.fieldLog = Object.keys(bot.__state.fieldLog);
   }
   const tot = { w: st.L.w + st.R.w, l: st.L.l + st.R.l };
-  olog(`${useSkill ? '스킬 ON ' : '스킬 OFF'}: ${tot.w}-${tot.l} (L ${st.L.w}-${st.L.l} / R ${st.R.w}-${st.R.l})  랠리 ${st.rallies}  스킬로 끝난 랠리 ${st.bySkill}  봇 발동 ${st.fires}  규칙 armed/소모 ${st.ruleFires}/${st.ruleConsumed}  봇 예외 ${st.errs}  평균 ${(st.frames / st.games) | 0}f/경기` + (useSkill && st.fieldLog ? `  새 필드 ${JSON.stringify(st.fieldLog)}` : ''));
+  olog(`${useSkill ? '스킬 ON ' : '스킬 OFF'}: ${tot.w}-${tot.l} (L ${st.L.w}-${st.L.l} / R ${st.R.w}-${st.R.l})  랠리 ${st.rallies}  스킬로 끝난 랠리 ${st.bySkill}  봇 발동 ${st.fires}  규칙 armed/소모 ${st.ruleFires}/${st.ruleConsumed}  봇 예외 ${st.errs}  평균 ${(st.frames / st.games) | 0}f/경기` + (st.fieldLog && st.fieldLog.length ? `  새 필드 ${JSON.stringify(st.fieldLog)}` : ''));   // 새 필드는 OFF 행에도(ENGINE_ROOT 새 스냅샷 빌더가 넣는 필드 확인용)
 }

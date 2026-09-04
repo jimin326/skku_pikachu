@@ -9,7 +9,8 @@
 | 당일 **명령 순서**(T+0 ~ 제출, 막혔을 때) | `bot-dev/dayof/README.md` |
 | 당일 도구: 새 레포 diff · 썬더 유지/끄기 판정 · 제출 게이트 · Chrome 실기 | `bot-dev/dayof/diff_engine.mjs` · `thunder_check.mjs` · `gates.mjs` · `harness_dayof.mjs` |
 | 스킬 재현(실게임 흐름, 새 물리 위에서) | `bot-dev/eval_skill_real.mjs` + `bot-dev/skills/today.mjs` (`ENGINE_ROOT=<새레포>`) |
-| 제출 후보와 어댑터 노브 채우는 순서 | `src/code-here/Lion_Eating_Bank_v12_1.js` 27~40행 `SK`, `Lion_Eating_Bank_v12_1.md` §1·§4 |
+| 제출 후보와 어댑터 노브 채우는 순서 | `src/code-here/Lion_Eating_Bank_v12_1.js` 33~40행 `SK`, `Lion_Eating_Bank_v12_1.md` §1·§4 |
+| **처음 하는 사람용 스텝 바이 스텝(명령 복붙)** | `bot-dev/DAYOF_PLAN_2026-09-05.md` §4.1 |
 | 실패 모드별 손 절차(노브·한 줄 수정, v11 줄 번호) | `bot-dev/V11_VERIFY_REPORT_2026-09-05.md` B4 — 줄 번호는 `DAYOF_PLAN` §3 표의 v12 번호를 쓴다 |
 
 ## 옛 런북에서 그대로 유효한 원칙
