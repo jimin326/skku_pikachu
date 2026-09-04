@@ -49,6 +49,11 @@ const GD_ATTACK_BOLD  = 350;
 const GD_ATTACK_COOL = 24;
 const GD_RD_BANDIT   = 1;
 const GD_ATTACK_VMAX = 12;  /* 이보다 빠른 공에는 절대 점프하지 않는다 */
+const GD_ATTACK_PH   = 1;     /* 1 = 상대 파워히트에서 온 공도 공격 대상으로 허용.
+                                                     * v5 가 무너진 원인은 "빠른 강타에 점프"였고 그건
+                                                     * GD_ATTACK_VMAX(|xV|≤12) 가 이미 막는다. isPowerHit 는
+                                                     * 사실상 중복 조건이면서 기회의 절반 가까이를 잘라냈다
+                                                     * (실측: 차단 8,487건 / 공격 62→97회, 종합 69.5→72.6%). */
 const GD_LONG_RALLY  = 420;  /* 이 프레임을 넘긴 랠리는 인증 기준을 점진적으로 낮춘다 */
 const GD_STICKY      = 900;      /* 대기 목표 히스테리시스(진동 억제) */
 const GD_CLS_NEARNET = 70;  /* 코스 분포 학습에 쓸 상대 타격의 네트 근접 범위(px). 0=전부 */
@@ -402,6 +407,29 @@ var W = {
   EXACT_REACT: 0,  /* 실측: ANTICIPATE 지평에 적용하면 사실상 낙관적 REACT 가 되어 역효과(40.0%→13.3%) */
   EXACT_REACT_OFF: 0,  /* 1 = 상수 REACT 대신 위상에서 정확히 계산한 반응 지연 사용 */
   OPP_EXTRAP: 1,   /* 배치 평가에서 상대 위치를 낙하지점 추종으로 외삽 */
+  /* ── 2수 게임 트리 ────────────────────────────────────────────────────
+   * 1수(리턴 배치)만 보는 모델은 전부 실패했다. 상대는 우리 리턴을 보고 나서
+   * 움직이므로, "상대가 어디서 만나는가"를 우리가 고정할 수 없기 때문이다.
+   * 2수는 그 되먹임을 직접 푼다:
+   *   우리 리턴 → (상대가 낙하지점으로 이동해 가장 위험한 지점에서 최선 응수)
+   *            → 그때 우리가 방어 가능한 코스 비율
+   * 이 값을 최대화하는 리턴을 고른다 = maximin. */
+  DANGER_DEEP: 40, /* 네트에서 이 안쪽(상대 코트)에서의 타격만 위협으로 본다 */
+  RET_DANGER: 0,   /* [구] 도달성 무시 순수 기하 위험도. 과보수적이라 OFF (§11.3) */
+  /* ── 도달성 결합 위험도 ────────────────────────────────────────────────
+   * 앞선 두 시도는 정확히 반대 방향으로 틀렸다.
+   *   returnDanger  : 상대가 어디든 갈 수 있다고 가정 → 과보수적 (좋은 깊은 공까지 버림)
+   *   배치 3항/2수  : 상대 위치를 행동 예측(낙하지점 추종 ±8px)으로 고정 → 과낙관적
+   * 옳은 결합은 "예측"이 아니라 **도달 가능 집합**이다:
+   *   프레임 k 에 상대가 x 에 있을 수 있다  <=>  |x - opp.x| <= 32 + 6*(k - 반응지연)
+   *   그리고 그 높이까지 올라갈 수 있다      <=>  y >= oppLowY[k] - 32
+   * 이건 상대가 무엇을 "할지"가 아니라 무엇을 "할 수 있는지"의 경계라
+   * 최적반응 상대에게도 견고하면서, 물리적으로 불가능한 위협은 배제한다. */
+  RET_DANGER2: 0,  /* 도달성 결합 위험도 1단계당 감점 (0=OFF) */
+  DANGER_REACT: 2, /* 위협 판정에서 상대에게 주는 반응 지연(작을수록 상대에게 관대=보수적) */
+  SPIKE_REACH: 0,  /* 2수의 상대 접촉 모델: 0=행동 예측(낙하지점 추종), 1=도달 가능 집합 */
+  TWOPLY: 1000,    /* 2수 평가 가중. 400 이상에서 포화(사실상 동점 파훼자로 작동) */
+  TWOPLY_K: 6,     /* 1수 점수 상위 K개 후보에만 2수를 돌린다(비용 제한) */
   TIER1: 0,        /* 1 = 접촉창 1프레임 위협 커버를 사전식 최우선. 실측상 역효과(40.0%→30.0%)라 OFF */
   LETHAL1: 2.60,   /* 접촉 가능 프레임 1개 = 치명 */
   LETHAL2: 2.00,
@@ -423,6 +451,34 @@ var W = {
    *   그대로 얻어맞는다. 치명도 가중 고정 사전확률(= minimax 헤지)이 더 강했다.
    * 코스가 확실히 한쪽으로 고정된 상대가 확인되면 CLS_MIN 을 3 정도로 낮춰 켠다. */
   CLS_MIN: 9999,   /* 이 횟수 이상 관측해야 상대 코스 분포를 반영 (9999 = OFF) */
+  /* ── 조건부(스타켈베르크) 코스 예측 ──────────────────────────────────────
+   * §3 의 전역 빈도 학습은 실패했다. 그런데 실측해 보니 원인이 따로 있었다:
+   * 일부 상대는 코스를 "섞는" 게 아니라 **우리 위치에 최적반응**한다.
+   *   v5 상대, 우리가 네트 24~47px 앞  → 수평 강타 56/56 (100%)
+   *            우리가 네트 96~119px 뒤 → 내리꽂기  4/4  (100%)
+   * (v5_1 은 위치와 무관하게 내리꽂기 91~97%, v4 는 100% — 최적반응 아님)
+   * 상대가 최적반응자라면 어떤 고정 위치도 원리적으로 착취당한다. 대신 우리가
+   * 선수(先手)이므로, "각 후보 위치가 유도하는 상대 응수"를 조건부로 예측해
+   * 그 응수를 막을 수 있는 위치를 고르면 된다 = 스타켈베르크 균형.
+   * 관측은 공개 정보(상대 타격 복원 + 그때 우리 x)뿐이다. */
+  COND: 0,         /* 1 = 조건부 코스 예측으로 모든 위협 가중 재조정. 전체 역효과(75.8→65.6%)라 OFF */
+  /* ── 조건부 신호의 좁은 사용: 가중치 재조정이 아니라 "위치 금지" ──────────
+   * 최적반응형 상대(v5)는 우리가 네트 앞에 서면 깊은 수평 강타를 고른다.
+   * 그런데 x≥164 에서는 그 코스에 **어떤 접촉도 물리적으로 불가**하다(dbg_flat.mjs).
+   * 즉 그 자리는 "막기 어려운" 게 아니라 "그 상대에겐 자동 실점"인 자리다.
+   * 관측이 그걸 뒷받침하면 해당 구간을 후보에서 빼기만 한다. 비최적반응형
+   * 상대(v5_1·v4: 어디서든 내리꽂기 91~100%)에겐 조건이 성립하지 않아 무동작. */
+  COND_BAN: 0,       /* 1 = 착취당하는 위치 금지 사용 */
+  COND_BAN_TH: 0.65, /* 그 버킷에서 깊은 코스(수평/아치) 비율이 이 이상이면 금지 */
+  COND_BAN_MIN: 10,  /* 금지 판정에 필요한 최소 관측 수 */
+  COND_MIN: 6,     /* 버킷당 최소 관측 수 */
+  COND_FULL: 20,   /* 이만큼 모이면 관측 분포를 최대로 신뢰 */
+  COND_BW: 38,     /* 우리 위치 버킷 폭(px, 네트까지 거리 기준) */
+  /* 중립 대기 위치를 네트에서 이만큼 더 뒤로 민다.
+   * 근거: 앞(≤47px)에 서면 최적반응형 상대(v5)가 수평 강타 100% 를 고르는데,
+   * x≥164 에서는 그 코스에 대해 "어떤 접촉도 물리적으로 불가"하다(dbg_flat.mjs).
+   * x≤152 면 관측 후 슬라이딩으로 도달한다. */
+  NEUTRAL_SHIFT: 0,
   CLS_FULL: 10,    /* 이 횟수면 관측 분포를 최대로 신뢰 */
   /* ── 리턴 배치(shot placement) ────────────────────────────────────────
    * 랠리 중 썬더는 "상대에게 네트 앞 공격권을 준 결과"다. 상대 접촉 지점을
@@ -485,6 +541,22 @@ function rollout(x, y, xV, yV, n) {
   return out;
 }
 function rollBall(ball, n) { return rollout(ball.x, ball.y, ball.xVelocity, ball.yVelocity, n); }
+
+/* 대기 계획은 각 위협의 "우리 코트 지상 접촉점"만 필요하다. 궤적 배열을 만들면
+ * 위협 하나당 ~100개 객체 × 최대 ~80위협 = 결정마다 수천 객체를 버리게 된다.
+ * 스트리밍으로 접촉점만 모으면 할당이 사라진다. */
+function rolloutPts(x, y, xV, yV, n, isRight, minX, maxX) {
+  var b = { x: x, y: y, xV: xV, yV: yV }, pts = [], lastX = x;
+  for (var k = 1; k <= n; k++) {
+    if (stepBall(b)) break;
+    lastX = b.x;
+    if (!oursSide(b.x, isRight)) continue;
+    if (b.y < CONTACT_LO || b.y > BGY) continue;
+    if (b.x < minX - PH - 60 || b.x > maxX + PH + 60) continue;
+    pts.push({ k: k, x: b.x });
+  }
+  return { pts: pts, landX: lastX };
+}
 
 /* 좌우 정규화 없이 쓰기 위한 헬퍼 */
 function oursSide(x, isRight) { return isRight ? x >= NET : x <= NET; }
@@ -609,15 +681,26 @@ function scoreContact(bx, by, byV, px, s, isRight, minX, maxX, touches, low, off
      * 실제로 중요한 것은 "상대가 어디서 이 공을 만나는가"다. */
     var landDepth = isRight ? (NET - lastT.x) : (lastT.x - NET);
     sc += clamp(landDepth - 24, 0, 180) * W.DEPTH_W;
-    var q = oppBestContact(tr, s.opp.x, low, isRight, off);
-    if (q === null) sc += W.NOREACH;
-    else {
-      var netDist = Math.abs(q.x - NET);
-      sc += clamp(netDist, 0, 170) * W.PUSH_DEEP;     /* 네트에서 멀수록 좋음 */
-      if (netDist <= W.NEARNET) sc -= W.GIVE_TH;      /* 네트 앞 공격권 헌납 */
-      sc -= worstSpikeThreat(q, isRight) * W.THREAT;  /* 상대가 강요할 수 있는 최악 */
+    /* 배치항(PUSH_DEEP/GIVE_TH/THREAT)은 기본 0 이다. 0 일 때 상대 접촉 탐색과
+     * worstSpikeThreat(4 롤아웃)을 그대로 돌면 후보당 수백 프레임을 헛돈다. */
+    var placeOn = (W.PUSH_DEEP !== 0 || W.GIVE_TH !== 0 || W.THREAT !== 0);
+    if (placeOn) {
+      var q = oppBestContact(tr, s.opp.x, low, isRight, off);
+      if (q === null) sc += W.NOREACH;
+      else {
+        var netDist = Math.abs(q.x - NET);
+        sc += clamp(netDist, 0, 170) * W.PUSH_DEEP;
+        if (netDist <= W.NEARNET) sc -= W.GIVE_TH;
+        if (W.THREAT !== 0) sc -= worstSpikeThreat(q, isRight) * W.THREAT;
+      }
+    } else if (!oppCanCover(tr, s.opp.x, low, isRight, off)) {
+      sc += W.NOREACH;                                /* 상대가 아예 못 닿는 리턴 */
     }
     if (flight < 26) sc += 120;                       /* 빨리 떨어지면 대응 시간이 없다 */
+    /* [리턴 각도] 이 리턴이 상대에게 "막을 수 없는 스파이크 각도"를 내주는가.
+     * 상대 위치를 쓰지 않는 순수 기하 지표라 최적반응 상대에게도 견고하다. */
+    if (W.RET_DANGER !== 0) sc -= returnDanger(tr, isRight, off) * W.RET_DANGER;
+    if (W.RET_DANGER2 !== 0) sc -= returnDangerReach(tr, s.opp.x, low, isRight, off) * W.RET_DANGER2;
   } else {
     /* 네트를 못 넘김. 접촉 횟수 예산과 두 번째 기회로 평가한다. */
     sc -= (touches >= 2) ? 800 : 220;
@@ -625,7 +708,7 @@ function scoreContact(bx, by, byV, px, s, isRight, minX, maxX, touches, low, off
     if (again) sc += 260 + (flight < 70 ? flight : 70) * 2;
     else sc -= 900;
   }
-  return { score: sc, toOpp: toOpp, landX: lastT.x, flight: flight, xV: nx };
+  return { score: sc, tr: tr, toOpp: toOpp, landX: lastT.x, flight: flight, xV: nx };
 }
 
 /* ── 지상(걷기) 수신 co-simulation.
@@ -674,6 +757,169 @@ function simDiveContact(px1, dir, delay, traj, minX, maxX) {
   return null;
 }
 
+/* ── 상대가 우리 리턴을 만나는 "가장 위험한" 지점 (위치 외삽 + 점프 준비시간 반영) */
+function oppSpikeContact(tr, oppX0, isRight, off) {
+  off = off || 0;
+  var best = null, bestD = 1e9;
+  for (var i = 0; i < tr.length; i++) {
+    var t = tr[i], k = i + 1 + off;
+    if (t.dead) break;
+    if (oursSide(t.x, isRight)) continue;
+    if (t.y > PGY + PH || t.y < 70) continue;
+    /* 상대 접촉 가능 판정.
+     *   0 = "낙하지점으로 걸어간다"는 행동 예측(±8px). 좁아서 과낙관적일 수 있다.
+     *   1 = 도달 가능 집합 경계. 상대가 무엇을 할지가 아니라 할 수 있는지를 본다. */
+    if (W.SPIKE_REACH) {
+      if (Math.abs(t.x - oppX0) > PH + WALK * (k - W.DANGER_REACT > 0 ? k - W.DANGER_REACT : 0)) continue;
+    } else {
+      var oxk = oppXAt(tr, oppX0, isRight, k);
+      if (Math.abs(t.x - oxk) > PH + 8) continue;     /* 그 프레임에 거기 못 있음 */
+    }
+    /* 지상보다 높은 곳에서 만나려면 점프 준비 프레임이 필요하다 */
+    if (t.y < CONTACT_LO) {
+      var m = 0;
+      while (m < 16 && jumpY(m) > t.y) m++;
+      if (k < m) continue;
+    }
+    var d = Math.abs(t.x - NET);
+    if (d < bestD) { bestD = d; best = { k: k, x: t.x, y: t.y, yV: t.yV }; }
+  }
+  return best;
+}
+
+/* ── 리턴 위험도 (상대 위치와 무관한 순수 기하 지표) ──────────────────────
+ * [검증: truth_vertical.mjs]
+ *   상대의 최대 급경사 스파이크(yV=40, 엔진 상한)는 우리 코트 접촉창이 **1프레임**이고
+ *   반응이 물리적으로 불가능하다. 오직 미리 그 자리에 있어야만 막힌다.
+ *   그런데 상대 타격 x 가 깊어지면(우리가 LEFT 일 때 x >= ~232) 그 스파이크는
+ *   네트 기둥 밴드(|x-216|<25, y>192)에서 **자기 코트 쪽으로 되튕겨** 자책이 된다.
+ *   즉 위험 구간은 네트 바로 건너편 x ≈ 190~232 로 좁다.
+ * 따라서 리턴의 좋고 나쁨은 "상대가 어디 있는가"가 아니라
+ * "이 궤적이 위험 구간을 지나며 상대가 때릴 수 있는 높이에 있는가"로 판정할 수 있다.
+ * 상대 위치를 예측할 필요가 없어(= 최적반응 상대에게도 견고) 앞선 배치 시도들과 다르다.
+ * 반환 0(안전) ~ 3(우리 코트 지상 접촉창 0 = 사실상 실점). */
+function returnDanger(tr, isRight, off) {
+  var sgn = isRight ? 1 : -1, worst = 0;
+  for (var i = 0; i < tr.length; i++) {
+    var t = tr[i];
+    if (t.dead) break;
+    if (oursSide(t.x, isRight)) continue;             /* 아직 우리 코트 */
+    if (t.y < 76 || t.y > PGY + PH) continue;         /* 점프로도 못 닿거나 이미 바닥 */
+    var dNet = isRight ? (NET - t.x) : (t.x - NET);   /* 상대 코트 깊이 */
+    if (dNet < 0 || dNet > W.DANGER_DEEP) continue;   /* 깊은 곳에서의 스파이크는 자책 */
+    var base = Math.max(15, Math.abs(t.yV));
+    for (var xa = 0; xa <= 1; xa++) {
+      var s2 = rollout(t.x, t.y, sgn * (xa + 1) * 10, base * 2, 40);
+      var lastT = s2[s2.length - 1];
+      if (!oursSide(lastT.x, isRight)) continue;      /* 우리 코트에 안 옴 = 자책 */
+      var n = 0;
+      for (var j = 0; j < s2.length; j++) {
+        var u = s2[j];
+        if (u.dead) break;
+        if (!oursSide(u.x, isRight)) continue;
+        if (u.y >= CONTACT_LO && u.y <= BGY) n++;
+      }
+      var th = n === 0 ? 3 : (n === 1 ? 2 : (n === 2 ? 1 : 0));
+      if (th > worst) { worst = th; if (worst >= 3) return 3; }
+    }
+  }
+  return worst;
+}
+
+/* ── 도달성 결합 리턴 위험도.
+ *    returnDanger 와 같은 스파이크 기하 평가에, 상대의 도달 가능 집합 게이트를 더한다. */
+function returnDangerReach(tr, oppX, low, isRight, off) {
+  off = off || 0;
+  var sgn = isRight ? 1 : -1, worst = 0, rd = W.DANGER_REACT;
+  for (var i = 0; i < tr.length; i++) {
+    var t = tr[i], k = i + 1 + off;
+    if (t.dead) break;
+    if (oursSide(t.x, isRight)) continue;
+    if (t.y < 76 || t.y > PGY + PH) continue;
+    var dNet = isRight ? (NET - t.x) : (t.x - NET);
+    if (dNet < 0 || dNet > W.DANGER_DEEP) continue;   /* 깊은 곳 스파이크는 자책 */
+    /* [도달성] 가로: 걸어서 닿을 수 있는가 */
+    if (Math.abs(t.x - oppX) > PH + WALK * (k - rd > 0 ? k - rd : 0)) continue;
+    /* [도달성] 세로: 그 프레임에 그 높이까지 올라갈 수 있는가 */
+    var lo = (low && low[k] !== undefined) ? low[k] : PGY;
+    if (t.y < lo - PH) continue;
+    var base = Math.max(15, Math.abs(t.yV));
+    for (var xa = 0; xa <= 1; xa++) {
+      var s2 = rollout(t.x, t.y, sgn * (xa + 1) * 10, base * 2, 40);
+      var lastT = s2[s2.length - 1];
+      if (!oursSide(lastT.x, isRight)) continue;
+      var n = 0;
+      for (var j = 0; j < s2.length; j++) {
+        var u = s2[j];
+        if (u.dead) break;
+        if (!oursSide(u.x, isRight)) continue;
+        if (u.y >= CONTACT_LO && u.y <= BGY) n++;
+      }
+      var th = n === 0 ? 3 : (n === 1 ? 2 : (n === 2 ? 1 : 0));
+      if (th > worst) { worst = th; if (worst >= 3) return 3; }
+    }
+  }
+  return worst;
+}
+
+/* ── 2수 평가: 우리가 px 에서 이 공을 받았을 때, 상대 최선 응수에 대한 우리 방어 커버리지(0~1) */
+function twoPlyCoverage(px, tr1, s, isRight, minX, maxX, off) {
+  var q = oppSpikeContact(tr1, s.opp.x, isRight, off);
+  if (q === null) return 1;                            /* 상대가 아예 못 만짐 */
+  var base = Math.max(15, Math.abs(q.yV));
+  var sgn = isRight ? 1 : -1;
+  var resp = [], totW = 0;
+  for (var xa = 0; xa <= 1; xa++) {
+    for (var yd = 1; yd >= -1; yd--) {
+      var tr2 = rollout(q.x, q.y, sgn * (xa + 1) * 10, base * yd * 2, 100);
+      var lastT = tr2[tr2.length - 1];
+      if (!oursSide(lastT.x, isRight)) continue;       /* 상대 자책 = 위협 아님 */
+      var pts = [];
+      for (var i = 0; i < tr2.length; i++) {
+        var t = tr2[i];
+        if (t.dead) break;
+        if (!oursSide(t.x, isRight)) continue;
+        if (t.y < CONTACT_LO || t.y > BGY) continue;
+        pts.push({ abs: q.k + i + 1, x: t.x });
+      }
+      var w = (yd === 1 ? W.DOWN : (yd === 0 ? W.FLAT : W.LOB)) * (xa === 1 ? W.FAR : 1);
+      if (!pts.length) { totW += w; continue; }        /* 우리 코트에 오는데 접촉창이 없음 = 못 막음 */
+      w *= (pts.length <= 1 ? W.LETHAL1 : (pts.length === 2 ? W.LETHAL2 : (pts.length <= 4 ? W.LETHAL4 : 1)));
+      resp.push({ pts: pts, w: w });
+      totW += w;
+    }
+  }
+  if (totW <= 0) return 1;
+  /* 우리 리턴 접촉(프레임 off, 위치 px) 이후 상대 타격까지 걸어서 잡을 수 있는 사전 위치들 */
+  var freeF = q.k - off; if (freeF < 0) freeF = 0;
+  var lo = clamp(px - WALK * freeF, minX, maxX), hi = clamp(px + WALK * freeF, minX, maxX);
+  /* 이진 커버리지(막는다/못막는다)는 비행시간이 길면 전부 1 로 포화해 변별력이 없다.
+   * 그래서 "가장 좋은 사전 위치에서의 가중 여유(margin)"를 연속값으로 쓴다.
+   * 못 막는 응수는 음수 여유로 그대로 반영되고, 아슬아슬하게 막는 것과
+   * 넉넉히 막는 것이 구분된다. */
+  var bestV = -1e9;
+  for (var P = lo; P <= hi; P += 6) {
+    var v = 0;
+    for (var r = 0; r < resp.length; r++) {
+      var L = resp[r], m = -1e9;
+      for (var j = 0; j < L.pts.length; j++) {
+        var pt = L.pts[j];
+        var free = pt.abs - (q.k + REACT); if (free < 0) free = 0;
+        var rw = WALK * free, rd = free > 1 ? 6 + 8 * (free - 1) : rw;
+        if (rd > DIVE_SPAN) rd = DIVE_SPAN;
+        var mg = PH + (rd > rw ? rd : rw) - Math.abs(pt.x - P);
+        if (mg > m) m = mg;
+      }
+      if (m > 40) m = 40; else if (m < -60) m = -60;
+      v += L.w * m;
+    }
+    if (v > bestV) bestV = v;
+  }
+  /* 응수가 하나도 우리 코트에 안 오면(전부 상대 자책) 만점 */
+  if (!resp.length) return 1;
+  return (bestV / totW + 60) / 100;                    /* 0(최악) ~ 1(최선) */
+}
+
 /* ══ 수신 계획 ═══════════════════════════════════════════════════════════ */
 function planReceive(s, minX, maxX, isRight, px1, touches, prevOppY, dTick) {
   var traj = rollBall(s.ball, HORIZON);
@@ -689,18 +935,44 @@ function planReceive(s, minX, maxX, isRight, px1, touches, prevOppY, dTick) {
         t.x >= minX - PH && t.x <= maxX + PH) { hasGround = true; break; }
   }
 
-  var best = null;
-  /* 1) 걷기 수신: 목표 x 를 전 구간에서 전수 탐색하고, 실제 컨트롤러로 검증한다. */
+  var best = null, cands = [];
+  /* 1) 걷기 수신: 목표 x 를 전 구간에서 훑되, 도달 위치가 18px 격자라 [P5]
+   *    실제로는 소수의 (접촉 프레임, 접촉 위치) 로 수렴한다. 같은 쌍은 점수가
+   *    완전히 동일하므로 한 번만 채점한다(후보 77 → 보통 2~6개). */
+  var seen = {};
   for (var tp = minX; tp <= maxX; tp += 2) {
     var c = simWalkContact(px1, tp, traj, minX, maxX);
     if (c === null) continue;
+    var key = c.k + ':' + c.p;
+    if (seen[key] !== undefined) continue;
+    seen[key] = 1;
     var ev = scoreContact(c.t.x, c.t.y, c.t.yV, c.p, s, isRight, minX, maxX, touches, low, c.k);
     var sc = ev.score + 500;                          /* 걷기 수신은 다이빙보다 항상 우대 */
     sc += (c.k > 40 ? 40 : c.k);                      /* 늦게 만날수록 재계획 여지가 크다 */
-    if (best === null || sc > best.sc) {
-      best = { sc: sc, act: { x: c.first, y: 0, hit: 0 }, k: c.k, p: c.p,
-               ev: ev, dive: false, target: tp };
+    var cand = { sc: sc, act: { x: c.first, y: 0, hit: 0 }, k: c.k, p: c.p,
+                 ev: ev, dive: false, target: tp };
+    if (W.TWOPLY > 0 && ev.toOpp) cands.push(cand);
+    if (best === null || sc > best.sc) best = cand;
+  }
+
+  /* 1b) 2수 재순위.
+   * 주의: 목표 x 를 2px 씩 훑으므로 후보 대부분이 "같은 접촉 위치 p"로 수렴한다
+   * (도달 위치가 18px 격자이기 때문 [P5]). 점수 상위 K개를 뽑으면 전부 이웃이라
+   * 반사속도가 사실상 같아 2수 값이 동일해지고 순위가 절대 안 바뀐다.
+   * 그래서 실제로 서로 다른 선택지인 "접촉 위치 p"별로 최선 후보만 남겨 비교한다. */
+  if (W.TWOPLY > 0 && cands.length > 1) {
+    /* cands 는 이미 (접촉프레임, 접촉위치) 로 유일하다 = 서로 다른 실제 선택지 */
+    var uniq = cands.slice();
+    uniq.sort(function (a, b) { return b.sc - a.sc; });
+    var K = uniq.length < W.TWOPLY_K ? uniq.length : W.TWOPLY_K;
+    var best2 = null;
+    for (var ci = 0; ci < K; ci++) {
+      var cd = uniq[ci];
+      cd.cov = twoPlyCoverage(cd.p, cd.ev.tr, s, isRight, minX, maxX, cd.k);
+      cd.sc2 = cd.sc + W.TWOPLY * cd.cov;
+      if (best2 === null || cd.sc2 > best2.sc2) best2 = cd;
     }
+    if (best2 !== null) { best2.sc = best2.sc2; if (best === null || best2.sc2 > best.sc) best = best2; }
   }
 
   /* 2) 다이빙 수신: 걷기로 도달할 수 없을 때만. 착지 후 18프레임 무제어를 비용으로 반영. */
@@ -773,7 +1045,28 @@ function oppLowY(s, prevOppY, dTick, kmax) {
  * m 을 1..3 으로 전수 검사하면 정확히 복원된다. 이 값이 "상대가 실제로 어느
  * 높이에서 치는가"라는 잠재변수의 유일한 관측치이고, 이걸 알면 접촉 시점 가설의
  * 확률질량을 실제 타이밍에 몰아줄 수 있다. */
-var HIT = { n: 0, yMean: 171, xMean: 0, cls: [0, 0, 0], power: 0, soft: 0 };
+var HIT = { n: 0, yMean: 171, xMean: 0, cls: [0, 0, 0], power: 0, soft: 0,
+            cond: [[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]] };   /* [우리위치버킷][코스] */
+function condBucket(netDist) {
+  var b = Math.floor(netDist / W.COND_BW);
+  return b < 0 ? 0 : (b > 4 ? 4 : b);
+}
+/* 버킷 b 에 섰을 때 상대가 코스 i 를 고를 상대확률(균등 대비 배율). 관측 부족이면 1. */
+/* 버킷 b 에 서면 상대가 "깊은 코스"로 응징하는가? (금지 판정) */
+function condBanned(b) {
+  if (!W.COND_BAN) return false;
+  var v = HIT.cond[b], n = v[0] + v[1] + v[2];
+  if (n < W.COND_BAN_MIN) return false;
+  return (v[1] + v[2]) / n >= W.COND_BAN_TH;
+}
+function condMul(b, i) {
+  if (!W.COND) return 1;
+  var v = HIT.cond[b], n = v[0] + v[1] + v[2];
+  if (n < W.COND_MIN) return 1;
+  var conf = (n - W.COND_MIN + 1) / (W.COND_FULL - W.COND_MIN + 1);
+  if (conf > 1) conf = 1;
+  return (1 - conf) + conf * ((v[i] + 1) / (n + 3)) * 3;
+}
 function reconstructHit(prev, cur, g) {
   if (!prev) return null;
   for (var m = 1; m <= g; m++) {
@@ -790,7 +1083,7 @@ function reconstructHit(prev, cur, g) {
   }
   return null;
 }
-function noteOppHit(y, x, xV0, yV0, learnCls) {
+function noteOppHit(y, x, xV0, yV0, learnCls, myNetDist) {
   HIT.n += 1;
   var r = HIT.n === 1 ? 1 : 0.4;
   HIT.yMean += (y - HIT.yMean) * r;
@@ -799,7 +1092,12 @@ function noteOppHit(y, x, xV0, yV0, learnCls) {
   var ax = Math.abs(xV0);
   if (ax === 10 || ax === 20) {
     HIT.power += 1;
-    if (learnCls !== false) HIT.cls[yV0 > 8 ? 0 : (yV0 < -8 ? 2 : 1)] += 1;  /* 0=내리꽂기 1=수평 2=아치 */
+    var kind = yV0 > 8 ? 0 : (yV0 < -8 ? 2 : 1);        /* 0=내리꽂기 1=수평 2=아치 */
+    if (learnCls !== false) HIT.cls[kind] += 1;
+    /* 네트 앞 공격만, 그때 우리가 어디 있었는지와 함께 기록 */
+    if (learnCls !== false && myNetDist !== undefined && myNetDist !== null) {
+      HIT.cond[condBucket(myNetDist)][kind] += 1;
+    }
   } else HIT.soft += 1;
 }
 
@@ -834,15 +1132,15 @@ function hitPrior(y) {
  *   (2) 당장은 아무 위협도 없을 때(우리가 막 넘긴 직후 등)의 중립 위치 산출.
  *       이 구간은 "아무것도 안 하는 시간"이 아니라 다음 공격을 대비해 미리
  *       자리를 잡을 수 있는 유일한 여유 시간이다. */
-function canonShots(isRight, cc, w) {
+function canonShots(isRight, cc, w, minX, maxX) {
   var out = [], sgn = isRight ? 1 : -1;
   var cx = isRight ? NET - 8 : NET + 8;
   for (var b = 0; b < 2; b++) {
-    out.push({ c: cc, tr: rollout(cx, 171, sgn * 20, (b ? 30 : 19) * 2, HORIZON),
-               w: w * W.DOWN * clsMul(0), cls: 'C1', down: true, canon: true });
+    out.push({ c: cc, r: rolloutPts(cx, 171, sgn * 20, (b ? 30 : 19) * 2, HORIZON, isRight, minX, maxX),
+               w: w * W.DOWN * clsMul(0), cls: 'C1' });
   }
-  out.push({ c: cc, tr: rollout(cx, 171, sgn * 20, 0, HORIZON), w: w * W.FLAT * clsMul(1), cls: 'C0', down: false, canon: true });
-  out.push({ c: cc, tr: rollout(cx, 171, sgn * 20, -38, HORIZON), w: w * W.LOB * clsMul(2), cls: 'CL', down: false, canon: true });
+  out.push({ c: cc, r: rolloutPts(cx, 171, sgn * 20, 0, HORIZON, isRight, minX, maxX), w: w * W.FLAT * clsMul(1), cls: 'C0' });
+  out.push({ c: cc, r: rolloutPts(cx, 171, sgn * 20, -38, HORIZON, isRight, minX, maxX), w: w * W.LOB * clsMul(2), cls: 'CL' });
   return out;
 }
 
@@ -855,7 +1153,7 @@ function canonShots(isRight, cc, w) {
  * 리시브)의 변형끼리는 클래스 사전확률을 나눠 가지므로, 열거를 늘려도 확률
  * 질량이 부풀지 않는다. 결과적으로 "상대가 어느 타이밍에 쳐도 막을 수 있는 자리"
  * 가 선택된다. */
-function opponentShots(s, isRight, prevOppY, dTick) {
+function opponentShots(s, isRight, prevOppY, dTick, minX, maxX) {
   var traj = rollBall(s.ball, 70);
   var ox = s.opp.x;
   var low = oppLowY(s, prevOppY, dTick, traj.length + 2);
@@ -872,8 +1170,8 @@ function opponentShots(s, isRight, prevOppY, dTick) {
   var shots = [];
   if (!feas.length) {
     /* 지금 당장 상대가 건드릴 수 있는 공이 없다 → 표준 위협 기준 중립 위치로 미리 이동 */
-    shots.push({ c: 0, tr: traj, w: W.KEEP, cls: 'K', down: false });
-    var cn0 = canonShots(isRight, 12, 1);
+    shots.push({ c: 0, r: rolloutPts(s.ball.x, s.ball.y, s.ball.xVelocity, s.ball.yVelocity, 70, isRight, minX, maxX), w: W.KEEP, cls: 'K' });
+    var cn0 = canonShots(isRight, 12, 1, minX, maxX);
     for (var q0 = 0; q0 < cn0.length; q0++) shots.push(cn0[q0]);
     return shots;
   }
@@ -890,23 +1188,23 @@ function opponentShots(s, isRight, prevOppY, dTick) {
     var hp = hitPrior(cb.y);                          /* 관측된 타격 높이 사전확률 */
     for (var xa = 0; xa <= 1; xa++) {
       for (var yd = 1; yd >= -1; yd--) {
-        shots.push({ c: c, tr: rollout(cb.x, cb.y, sgn * (xa + 1) * 10, base * yd * 2, HORIZON),
+        shots.push({ c: c, r: rolloutPts(cb.x, cb.y, sgn * (xa + 1) * 10, base * yd * 2, HORIZON, isRight, minX, maxX),
                      w: (yd === 1 ? W.DOWN : (yd === 0 ? W.FLAT : W.LOB)) *
                         clsMul(yd === 1 ? 0 : (yd === 0 ? 1 : 2)) *
                         (xa === 1 ? W.FAR : 1) * hp,
-                     cls: 'P' + yd, down: yd === 1 });
+                     cls: 'P' + yd });
       }
     }
     /* 비파워(리시브/토스): 상대의 정확한 x 를 모르므로 대표 속도 3개 */
     if (cb.y >= CONTACT_LO - 40) {
       for (var m = 0; m < 3; m++) {
-        shots.push({ c: c, tr: rollout(cb.x, cb.y, sgn * (3 + m * 5), -base, HORIZON),
-                     w: W.SOFT * hp, cls: 'S', down: false });
+        shots.push({ c: c, r: rolloutPts(cb.x, cb.y, sgn * (3 + m * 5), -base, HORIZON, isRight, minX, maxX),
+                     w: W.SOFT * hp, cls: 'S' });
       }
     }
   }
   /* 상대가 안 칠 경우: 현재 궤적 그대로 */
-  shots.push({ c: 0, tr: traj, w: W.KEEP, cls: 'K', down: false });
+  shots.push({ c: 0, r: rolloutPts(s.ball.x, s.ball.y, s.ball.xVelocity, s.ball.yVelocity, 70, isRight, minX, maxX), w: W.KEEP, cls: 'K' });
 
   /* ── 표준 최악 위협(네트 앞 내리꽂기) 앵커 ────────────────────────────
    * 앵커를 켜는 기준은 "상대가 언제 치는가"가 아니라 "위협이 우리 코트 지상에
@@ -919,7 +1217,7 @@ function opponentShots(s, isRight, prevOppY, dTick) {
   fade = fade < 0 ? 0 : (fade > 1 ? 1 : fade);
   if (fade > 0) {
     var cc = cRef > 22 ? 22 : (cRef < 6 ? 6 : cRef);
-    var cn = canonShots(isRight, cc, W.CANON * fade);
+    var cn = canonShots(isRight, cc, W.CANON * fade, minX, maxX);
     for (var q1 = 0; q1 < cn.length; q1++) shots.push(cn[q1]);
   }
   return shots;
@@ -928,23 +1226,19 @@ function opponentShots(s, isRight, prevOppY, dTick) {
 /* 표준 위협만으로 결정되는 중립 대기 x. 좌우/코트 폭에만 의존하므로 1회 계산 후 캐시. */
 var _neutral = {};
 function neutralX(minX, maxX, isRight, px1) {
-  var key = (isRight ? 'R' : 'L') + minX + '_' + maxX + '_' +
+  var key = (isRight ? 'R' : 'L') + minX + '_' + maxX + '_' + W.NEUTRAL_SHIFT + '_' +
             clsMul(0).toFixed(2) + '_' + clsMul(1).toFixed(2) + '_' + clsMul(2).toFixed(2);
   if (_neutral[key] !== undefined) return _neutral[key];
-  var cn = canonShots(isRight, 12, 1), best = px1, bestK = -Infinity;
+  var cn = canonShots(isRight, 12, 1, minX, maxX), best = px1, bestK = -Infinity;
   for (var p = minX; p <= maxX; p += 2) {
     var cov = 0, sl = 0;
     for (var j = 0; j < cn.length; j++) {
-      var sh = cn[j], m = -1e9;
-      for (var i = 0; i < sh.tr.length; i++) {
-        var t = sh.tr[i], k = i + 1;
-        if (t.dead) break;
-        if (!oursSide(t.x, isRight)) continue;
-        if (t.y < CONTACT_LO || t.y > BGY) continue;
-        var free = k - REACT; if (free < 0) free = 0;
+      var sh = cn[j], m = -1e9, pts0 = sh.r.pts;
+      for (var i = 0; i < pts0.length; i++) {
+        var free = pts0[i].k - REACT; if (free < 0) free = 0;
         var rw = WALK * free, rd = free > 1 ? 6 + 8 * (free - 1) : rw;
         if (rd > DIVE_SPAN) rd = DIVE_SPAN;
-        var mg = PH + (rd > rw ? rd : rw) - Math.abs(t.x - p);
+        var mg = PH + (rd > rw ? rd : rw) - Math.abs(pts0[i].x - p);
         if (mg > m) m = mg;
       }
       if (m <= -1e8) continue;
@@ -954,30 +1248,26 @@ function neutralX(minX, maxX, isRight, px1) {
     var kk = cov * 1000 + sl;
     if (kk > bestK) { bestK = kk; best = p; }
   }
+  best = clamp(isRight ? best + W.NEUTRAL_SHIFT : best - W.NEUTRAL_SHIFT, minX, maxX);
   _neutral[key] = best;
   return best;
 }
 
 function planStandby(s, minX, maxX, isRight, px1, prevTarget, prevOppY, dTick, dbg) {
-  var shots = opponentShots(s, isRight, prevOppY, dTick);
+  var shots = opponentShots(s, isRight, prevOppY, dTick, minX, maxX);
   var lists = [], maxC = 0;
   for (var j = 0; j < shots.length; j++) {
-    var sh = shots[j], pts = [];
-    for (var i = 0; i < sh.tr.length; i++) {
-      var t = sh.tr[i], k = i + 1;
-      if (t.dead) break;
-      if (!oursSide(t.x, isRight)) continue;
-      if (t.y < CONTACT_LO || t.y > BGY) continue;
-      if (t.x < minX - PH - 60 || t.x > maxX + PH + 60) continue;
-      pts.push({ k: k, x: t.x });
-    }
+    var sh = shots[j], pts = sh.r.pts;
     if (!pts.length) continue;                        /* 우리 코트에 안 옴 = 위협 아님 */
     /* 치명도: 접촉 가능 프레임이 좁을수록, 도착이 이를수록 위험하다. */
     var win = pts.length;
     var lethal = win <= 1 ? W.LETHAL1 : (win === 2 ? W.LETHAL2 : (win <= 4 ? W.LETHAL4 : 1.0));
     var firstAbs = sh.c + pts[0].k;
     var haste = firstAbs <= 16 ? 1.25 : 1.0;
-    lists.push({ pts: pts, w: sh.w * lethal * haste, c: sh.c, cls: sh.cls || 'X', lethal1: win <= 1 });
+    var cs0 = sh.cls || 'X';
+    var kind = (cs0 === 'P1' || cs0 === 'C1') ? 0 : ((cs0 === 'P0' || cs0 === 'C0') ? 1 :
+               ((cs0 === 'P-1' || cs0 === 'CL') ? 2 : -1));
+    lists.push({ pts: pts, w: sh.w * lethal * haste, c: sh.c, cls: cs0, kind: kind, lethal1: win <= 1 });
     if (sh.c > maxC) maxC = sh.c;
   }
   /* ── 클래스별 확률 정규화 ────────────────────────────────────────────────
@@ -1019,11 +1309,15 @@ function planStandby(s, minX, maxX, isRight, px1, prevTarget, prevOppY, dTick, d
       cur = clamp(cur + WALK * a, minX, maxX);
       posAt.push(cur);
     }
+    var pBucket = condBucket(isRight ? (p - NET) : (NET - p));
+    if (condBanned(pBucket)) continue;                /* 이 자리는 그 상대에게 자동 실점 */
     var covered = 0, slack = 0, worst = 1e9, tier1 = 0;
     for (var q = 0; q < lists.length; q++) {
       var L = lists[q], m = -1e9;
       var cEff = L.c > W.ANTICIPATE ? L.c : W.ANTICIPATE;   /* 최소 선행 지평 적용 */
-      var rct = W.EXACT_REACT ? reactAt(cEff) : REACT;
+      /* 반응 지연은 "실제 타격 프레임"의 위상으로 결정된다. 선행 지평으로 밀어놓은
+       * cEff 에 적용하면 위상이 뒤섞여 그냥 낙관적 상수가 되어버린다(실측 역효과). */
+      var rct = W.EXACT_REACT ? reactAt(L.c) : REACT;
       var lock = cEff + rct; if (lock > freeAt) lock = freeAt; if (lock < 1) lock = 1;
       var basePos = posAt[lock - 1];
       for (var r = 0; r < L.pts.length; r++) {
@@ -1045,10 +1339,12 @@ function planStandby(s, minX, maxX, isRight, px1, prevTarget, prevOppY, dTick, d
         if (isRight ? (basePos > pt.x + 12) : (basePos < pt.x - 12)) mg += W.BEHIND;
         if (mg > m) m = mg;
       }
+      /* [조건부] 이 후보 위치 p 에 섰을 때 상대가 이 코스를 고를 상대확률 */
+      var wEff = L.kind >= 0 ? L.w * condMul(pBucket, L.kind) : L.w;
       if (m >= 0) {
-        covered += L.w; slack += L.w * (m > 30 ? 30 : m);
-        if (L.lethal1) tier1 += L.w;                  /* 접촉창 1프레임 = 놓치면 무조건 실점 */
-      } else slack += L.w * m * 0.7;
+        covered += wEff; slack += wEff * (m > 30 ? 30 : m);
+        if (L.lethal1) tier1 += wEff;                 /* 접촉창 1프레임 = 놓치면 무조건 실점 */
+      } else slack += wEff * m * 0.7;
       if (m < worst) worst = m;
     }
     /* ── 사전식 우선순위 ────────────────────────────────────────────────────
@@ -1091,8 +1387,11 @@ return {
   W: W,
   stepBall: stepBall, rollout: rollout, rollBall: rollBall,
   moveToward: moveToward, planReceive: planReceive, planStandby: planStandby, reactAt: reactAt,
+  twoPlyCoverage: twoPlyCoverage, oppSpikeContact: oppSpikeContact, returnDanger: returnDanger,
+  returnDangerReach: returnDangerReach,
   opponentShots: opponentShots, oppLowY: oppLowY, jumpY: jumpY, neutralX: neutralX,
   reconstructHit: reconstructHit, noteOppHit: noteOppHit, HIT: HIT, clsMul: clsMul,
+  condMul: condMul, condBucket: condBucket, condBanned: condBanned,
   incomingLanding: incomingLanding, oppCanCover: oppCanCover,
   scoreContact: scoreContact, oursSide: oursSide, oppContact: oppContact, oppBestContact: oppBestContact,
   worstSpikeThreat: worstSpikeThreat,
@@ -1137,7 +1436,7 @@ var ADAPT_CFG = {
 /* === [FAST-1] 빠른 공격은 엄격한 성공 조건을 통과할 때만 사용 === */
 var FAST_ATTACK_CFG = {
   ARM_UNTILS: [2, 3],   // v5_1의 4프레임 대기보다 1~2프레임 먼저 타격 준비
-  MAX_CONTACT: 13,      // 너무 늦게 만나는 공은 '반박자 빠른 공격'에서 제외
+  MAX_CONTACT: 18,      // 너무 늦게 만나는 공은 '반박자 빠른 공격'에서 제외
   MAX_DROP: 15,
   DOWN_MAX_DROP: 11,    // 하향 공격은 접촉 뒤 11프레임 안에 떨어져야 함
   COURT_MARGIN: 10,
@@ -1159,7 +1458,8 @@ var g_fast_attack_until = -1;
 var g_fast_attack_policy = null;
 var g_gd_target = null;        /* [GD] 직전 대기/수신 목표 x (진동 억제용) */
 var g_gd_last_jump = -9999;    /* [GD] 마지막 공격 점프 tick */
-var g_gd_stats = { standby: 0, receive: 0, dive: 0, attack: 0, noPlan: 0 };
+var g_gd_stats = { standby: 0, receive: 0, dive: 0, attack: 0, noPlan: 0,
+  gPH: 0, gVX: 0, gDive: 0, gK: 0, gToOpp: 0, gTouch: 0, gOpp: 0, gCool: 0, gScore: 0, gOK: 0, killOK: 0 };
 var g_gd_prev_opp_y = null;   /* [GD] 직전 틱 상대 y (상대 탄도 추정용) */
 var g_gd_ball_was_ours = false;  /* [GD] 이번 랠리에 공이 우리 코트에 온 적이 있는가 */
 var g_gd_rally_mark = -1;
@@ -1365,7 +1665,7 @@ function findKillJump(s, minX, maxX) {
         var distFromOpp = Math.abs(r.landX - s.opp.x);
         var unreachable = distFromOpp > WALK_SPEED * drop + 44;
         var throughBall = r.oppWindow === 0;
-        if (drop > 14 && !unreachable && !throughBall) continue;
+        if (drop > 26 && !unreachable && !throughBall) continue;
         var score = 300 - drop * 6 + distFromOpp;
         if (throughBall) score += 250;
         else if (unreachable) score += 120;
@@ -1879,7 +2179,9 @@ function decideCore(s) {
          * 토스·리시브까지 세면 분포가 느린 공 쪽으로 쏠려 대기 위치가 뒤로 밀린다. */
         var nearNet = GD_CLS_NEARNET === 0 ||
           Math.abs(hit.x - NET_X) <= GD_CLS_NEARNET;
-        if (hitTheirs) GD.noteOppHit(hit.y, hit.x, hit.xV0, hit.yV0, nearNet);
+        /* 조건부 학습용: 상대가 칠 때 "우리가 네트에서 얼마나 떨어져 있었는가" */
+        var myNetD = isRight ? (me.x - NET_X) : (NET_X - me.x);
+        if (hitTheirs) GD.noteOppHit(hit.y, hit.x, hit.xV0, hit.yV0, nearNet, myNetD);
       }
     }
   }
@@ -1909,7 +2211,18 @@ function decideCore(s) {
        * 리시브에서 무너진 직접 원인이었다(강타 진입 중 점프 → 깊은 공 방치).
        * 점프는 (a) 느린 공을 (b) 여유 있게 받으며 (c) 시뮬레이션이 상대의
        * 대응 불가를 인증했을 때만 쓴다. */
-      var atkSafe = !ball.isPowerHit && Math.abs(ball.xVelocity) <= GD_ATTACK_VMAX;
+      var atkSafe = (GD_ATTACK_PH || !ball.isPowerHit) && Math.abs(ball.xVelocity) <= GD_ATTACK_VMAX;
+      if (GD_ATTACK) {
+        if (!GD_ATTACK_PH && ball.isPowerHit) g_gd_stats.gPH++;
+        else if (Math.abs(ball.xVelocity) > GD_ATTACK_VMAX) g_gd_stats.gVX++;
+        else if (plan.dive) g_gd_stats.gDive++;
+        else if (plan.k < GD_ATTACK_MIN_K) g_gd_stats.gK++;
+        else if (!plan.ev.toOpp) g_gd_stats.gToOpp++;
+        else if (g_touches >= 3) g_gd_stats.gTouch++;
+        else if (s.opp.state >= 3) g_gd_stats.gOpp++;
+        else if (s.tick - g_gd_last_jump <= GD_ATTACK_COOL) g_gd_stats.gCool++;
+        else g_gd_stats.gOK++;
+      }
       if (GD_ATTACK && atkSafe && !plan.dive && plan.k >= GD_ATTACK_MIN_K && plan.ev.toOpp &&
           g_touches < 3 && s.opp.state < 3 && s.tick - g_gd_last_jump > GD_ATTACK_COOL) {
         var fastAttack = findFastAttack(s, minX, maxX);
@@ -1922,6 +2235,7 @@ function decideCore(s) {
           return { x: fastAttack.jx, y: -1, hit: 1 };
         }
         var kill = findKillJump(s, minX, maxX);
+        if ((fastAttack !== null && fastAttack.score < atkBar) || (kill !== null && kill.score < atkBar)) g_gd_stats.gScore++;
         if (kill !== null && kill.score >= atkBar) {
           g_air_policy = kill.smash;
           g_gd_last_jump = s.tick; g_gd_stats.attack++;
