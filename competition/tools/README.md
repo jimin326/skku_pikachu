@@ -8,6 +8,7 @@
    ```
    cp -r competition/tools/bot-dev/* <jimin_pika>/bot-dev/
    cp competition/Lion_Eating_Bank_v12_1.js competition/Lion_Eating_Bank_v12.js <jimin_pika>/src/code-here/
+   cp competition/tools/src/code-here/*.js <jimin_pika>/src/code-here/     # 검증 상대 봇 OurBot_v12·NetCamper_v2 (jimin_pika 원격에는 없음)
    ```
 3. `<jimin_pika>` 루트에서 `bot-dev/dayof/README.md` 의 T+ 순서대로 실행한다.
 
@@ -27,6 +28,7 @@
 | `bot-dev/harness/run.mjs`, `bot-dev/harness/dayof.json` | Playwright 하네스 본체 + 당일 설정 템플릿 |
 | `bot-dev/thunder_phase12/serve_static.mjs` | 빌드 dist 정적 서버(의존성 없음) |
 | `bot-dev/RUNBOOK_당일.md` | 옛 3시간 런북의 폐기 스텁(새 절차 안내) |
+| `src/code-here/OurBot_v12.js`, `src/code-here/NetCamper_v2.js` | 검증 상대 봇 사본(아래 절) |
 
-## 필요한 상대 봇(jimin_pika `src/code-here/` 에 있음)
-`OurBot_v12.js`, `NetCamper_v2.js`, `AdaptiveCounter_v5_2.js` — shadow_diff·sk_v2_test·eval 의 기본 상대. 없으면 인자로 다른 봇을 준다.
+## 필요한 상대 봇
+`OurBot_v12.js`, `NetCamper_v2.js` — shadow_diff·sk_v2_test·gates·eval 의 기본 상대. **jimin_pika 원격(origin)에는 없어서** 이 폴더 `src/code-here/` 에 사본을 뒀다(위 2단계 cp). `AdaptiveCounter_v5_2.js` 는 jimin_pika 에 있다. 없으면 인자로 다른 봇을 준다.

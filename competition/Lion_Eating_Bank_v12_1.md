@@ -48,4 +48,4 @@ v12 어댑터의 구멍 4개를 메웠다: ① 썬더 시퀀스에도 스킬을 
 2. 제공 봇 `return` 문에서 `key`·`value`. 문서에서 `full`.
 3. `on: true`, `fire: 0` 으로 먼저 실행해 예외·로그 확인 → 계획 §3 유형 판정 → `fire` 결정.
 4. 규칙상 금지 행동이 생기면 `applySkill` 의 필터 자리(주석 표시)에 한 줄.
-5. 게이트: `node --no-warnings bot-dev/v8/shadow_diff.mjs Lion_Eating_Bank_v12 <후보> …`(SK off 동일), `node --no-warnings bot-dev/sk_v2_test.mjs Lion_Eating_Bank_v12 <후보>`, `node --no-warnings bot-dev/rule_check.mjs <후보>`.
+5. 게이트: `node --no-warnings bot-dev/v8/shadow_diff.mjs Lion_Eating_Bank_v12 <후보> …`(SK off 동일), `node --no-warnings bot-dev/sk_v2_test.mjs Lion_Eating_Bank_v12 <후보>`, `node --no-warnings bot-dev/rule_check.mjs src/code-here/<후보>.js`(rule_check 는 파일 경로만 받는다. `gates.mjs` 는 이름만 줘도 된다).
