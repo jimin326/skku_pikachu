@@ -1,4 +1,4 @@
-/* sk_v2_patch.mjs — 스킬 어댑터 v2 를 v12 에 적용해 v12_1 을 만든다 (bot-dev/DAYOF_PLAN_2026-09-05.md §2 P2).
+/* sk_v2_patch.mjs — 스킬 어댑터 v2 를 v12 에 적용해 v12_1 을 만든다 (competition/DAYOF_PLAN_2026-09-05.md §2 P2).
  * 사용: node bot-dev/sk_v2_patch.mjs [<in.js>] [<out.js>] [--check]
  *   기본 in  = src/code-here/Lion_Eating_Bank_v12.js
  *   기본 out = src/code-here/Lion_Eating_Bank_v12_1.js

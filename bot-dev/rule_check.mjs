@@ -35,6 +35,7 @@ function loadBare(src, label) {
 }
 const valid = (a) => !!a && (a.x === -1 || a.x === 0 || a.x === 1) && (a.y === -1 || a.y === 0 || a.y === 1) && (a.hit === 0 || a.hit === 1);
 
+let failed = false;
 for (const botPath of bots) {
   const name = path.basename(botPath);
   const src = fs.readFileSync(botPath, 'utf8');
@@ -43,12 +44,13 @@ for (const botPath of bots) {
   const hits = [];
   lines.forEach((l, i) => { if (/^\s*(\/\/|\*|\/\*)/.test(l)) return; if (FORBIDDEN.test(l)) hits.push(`${i + 1}: ${l.trim().slice(0, 90)}`); });
   const hasTopDecide = /^function\s+decide\s*\(/m.test(src);
+  if (bytes > 4 * 1024 * 1024 || !hasTopDecide || hits.length > 0) failed = true;
   origLog(`\n=== ${name}`);
   origLog(`  size ${(bytes / 1024).toFixed(1)} KB (limit 4096 KB) ${bytes <= 4 * 1024 * 1024 ? 'OK' : 'FAIL'} | top-level decide: ${hasTopDecide ? 'yes' : 'NO'} | forbidden-token lines: ${hits.length}`);
   hits.slice(0, 8).forEach((h) => origLog('    ' + h));
   let loaded;
-  try { loaded = loadBare(src, name); } catch (e) { origLog(`  LOAD FAIL in bare context: ${e && e.message}`); continue; }
-  if (!loaded.decide) { origLog('  LOAD FAIL: decide not a function after init'); continue; }
+  try { loaded = loadBare(src, name); } catch (e) { failed = true; origLog(`  LOAD FAIL in bare context: ${e && e.message}`); continue; }
+  if (!loaded.decide) { failed = true; origLog('  LOAD FAIL: decide not a function after init'); continue; }
   origLog(`  init ${loaded.initMs.toFixed(1)} ms (limit 60000) OK`);
   // 첫 호출(콜드) 시간
   const durs = []; let errors = 0, invalid = 0, calls = 0; const badSamples = [];
@@ -82,7 +84,10 @@ for (const botPath of bots) {
   const p = (q) => durs[Math.min(durs.length - 1, Math.floor(durs.length * q))];
   const mean = durs.reduce((a, b) => a + b, 0) / durs.length;
   const over120 = durs.filter((d) => d > 120).length, over360 = durs.filter((d) => d > 360).length;
+  if (over120 || errors || invalid) failed = true;
   origLog(`  decide: calls ${calls} avg ${mean.toFixed(3)} p50 ${p(0.5).toFixed(2)} p99 ${p(0.99).toFixed(2)} max ${durs[durs.length - 1].toFixed(2)} ms (first ${first.toFixed(1)}, max after 10 calls ${warmMax.toFixed(1)}) | >120ms ${over120} | >360ms ${over360} ${over360 ? 'FAIL' : over120 ? 'WARN' : 'OK'}`);
   origLog(`  returns: throws ${errors} invalid ${invalid} ${errors + invalid ? 'FAIL' : 'OK'} | games ${gw}-${gl} vs [${OPPS.join(',')}]`);
   badSamples.forEach((b) => origLog('    ' + b));
 }
+origLog(failed ? '\nRULE_CHECK FAIL' : '\nRULE_CHECK PASS');
+process.exitCode = failed ? 1 : 0;

@@ -1,4 +1,4 @@
-/* sk_v2_test.mjs — 스킬 어댑터 v2 기능 검사 (bot-dev/DAYOF_PLAN_2026-09-05.md §5 게이트 2~5).
+/* sk_v2_test.mjs — 스킬 어댑터 v2 기능 검사 (competition/DAYOF_PLAN_2026-09-05.md §5 게이트 2~5).
  * 사용: node --no-warnings bot-dev/sk_v2_test.mjs [<v12.js>] [<v12_1.js>] [OPP1,OPP2] [NSEED=1]
  *   v12_1 이 경기를 몰고(RealGame, 지연 1, 10점, 좌우), 스냅샷에 가짜 게이지(self.gauge/opp.gauge)를 주입한다.
  *   v12(SK.on=false) 는 같은 스냅샷(깊은 복사)을 그림자로 받아 x/y/hit 를 비교한다.

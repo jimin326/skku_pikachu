@@ -1,9 +1,9 @@
 /* harness_dayof.mjs — 새 레포를 빌드해 헤드리스 Chrome 에서 우리 봇 vs 제공 봇 좌우 2경기(병렬)를 돌리고 F12 로그를 요약.
- * 사용: node bot-dev/dayof/harness_dayof.mjs <새레포 루트> --opp <제공봇.js> [--bot Lion_Eating_Bank_v12_1.js] [--speed fast] [--score 10] [--parallel 2] [--port 8765] [--no-build] [--max-min 14]
+ * 사용: node bot-dev/dayof/harness_dayof.mjs <새레포 루트> --opp <제공봇.js> [--bot Lion_Eating_Bank_v12_1.js] [--speed fast] [--score 10] [--parallel 2] [--port 8765] [--max-min 14]
  *   1) 우리 봇(src/code-here/<bot>)을 새 레포 src/code-here/ 로 복사(내용이 다르면 덮어씀). 제공 봇은 새 레포에 이미 있어야 한다(<팀>_v<n>.js 규약, botRegistry 43행)
  *   2) 새 레포에서 npx webpack --config webpack.prod.js --output-path <scratch dist> (node_modules 필요, 약 10초)
  *   3) serve_static 으로 dist 를 띄우고  4) bot-dev/harness/run.mjs 실행(timing 켬)  5) 점수·시간·타이밍·오류·스킬 필드 로그 요약
- * 환경: NODE_PATH(playwright-core 가 든 node_modules), CHROME_PATH. 기본값은 이 PC(메모리 browser-harness-environment) 기준.
+ * 환경: playwright-core 는 이 저장소 devDependency를 우선 사용한다. Chrome은 일반 설치 경로를 자동 탐색하며, 필요할 때만 NODE_PATH/CHROME_PATH로 덮어쓴다.
  * 결과 bot-dev/dayof/out/chrome_<시각>.json. 소요: 10점 1세트 ≈ 6~8분(fast). --score 3 이면 연습용 1~2분.
  * 실패하면(UI id 변경 등) 수동: 새 레포 npm start → 봇 설정 좌 우리/우 제공 봇 → F12 콘솔에서 [OurBot 줄 확인 */
 import fs from 'node:fs'; import path from 'node:path'; import http from 'node:http'; import { spawn, spawnSync } from 'node:child_process'; import { fileURLToPath } from 'node:url';
@@ -12,16 +12,32 @@ const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf(k); if (i < 0) return d; const v = args[i + 1]; args.splice(i, 2); return v; };
 const OPP = opt('--opp', null), BOT = opt('--bot', 'Lion_Eating_Bank_v12_1.js'), SPEED = opt('--speed', 'fast'), SCORE = Number(opt('--score', '10'));
 const PAR = Number(opt('--parallel', '2')), PORT = Number(opt('--port', '8765')), MAXMIN = Number(opt('--max-min', '14'));
-const NOBUILD = args.includes('--no-build'); if (NOBUILD) args.splice(args.indexOf('--no-build'), 1);
 const REPO = path.resolve(args[0] || '.');
 const die = (m) => { console.error('!! ' + m); process.exit(2); };
 if (!OPP) die('--opp <제공봇.js> 가 필요 (새 레포 src/code-here 안의 파일명)');
 if (!fs.existsSync(path.join(REPO, 'webpack.prod.js'))) die('새 레포에 webpack.prod.js 가 없음: ' + REPO);
 if (!fs.existsSync(path.join(REPO, 'node_modules', 'webpack'))) die('새 레포에 node_modules 가 없음 → 먼저 npm install (T+0 에 백그라운드로)');
-const NODE_PATH = process.env.NODE_PATH || 'C:\\Users\\지민\\AppData\\Local\\Temp\\codex-playwright-core\\node_modules';
-const CHROME = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
-if (!fs.existsSync(path.join(NODE_PATH, 'playwright-core'))) die('playwright-core 를 못 찾음. NODE_PATH=<playwright-core 가 든 node_modules> 로 지정');
-if (!fs.existsSync(CHROME)) die('Chrome 을 못 찾음. CHROME_PATH 지정');
+const firstExisting = (xs, probe = (x) => x) => xs.filter(Boolean).find((x) => fs.existsSync(probe(x)));
+const nodeRoots = [
+  ...(process.env.NODE_PATH || '').split(path.delimiter).filter(Boolean),
+  path.join(ROOT, 'node_modules'),
+];
+const NODE_PATH = firstExisting(nodeRoots, (x) => path.join(x, 'playwright-core'));
+const chromeCandidates = [
+  process.env.CHROME_PATH,
+  process.env.PROGRAMFILES && path.join(process.env.PROGRAMFILES, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+  process.env['PROGRAMFILES(X86)'] && path.join(process.env['PROGRAMFILES(X86)'], 'Google', 'Chrome', 'Application', 'chrome.exe'),
+  process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  '/usr/bin/google-chrome',
+  '/usr/bin/google-chrome-stable',
+  '/usr/bin/chromium',
+  '/usr/bin/chromium-browser',
+];
+const CHROME = firstExisting(chromeCandidates);
+if (!NODE_PATH) die('playwright-core 를 못 찾음. 이 저장소에서 npm ci 후 재시도하거나 NODE_PATH=<node_modules> 지정');
+if (!CHROME) die('Chrome/Chromium 을 못 찾음. 설치 후 CHROME_PATH=<실행 파일> 지정');
+console.log(`브라우저 의존성: playwright-core=${path.join(NODE_PATH, 'playwright-core')}  chrome=${CHROME}`);
 const nameOk = (f) => /^(.+)_v([^.]+)\.(js|py)$/.test(f);   // botRegistry: 마지막 '_v' 로 나눔. 버전은 '12_1' 같은 것도 허용
 if (!nameOk(BOT)) die(`우리 봇 파일명이 <팀>_v<n>.js 규약이 아님: ${BOT}`);
 if (!nameOk(OPP)) die(`제공 봇 파일명이 <팀>_v<n>.<js|py> 규약이 아님(드롭다운에 안 뜸): ${OPP} → 새 레포 src/code-here 에서 규약 이름으로 복사`);
@@ -34,13 +50,11 @@ if (!fs.existsSync(botDst) || fs.readFileSync(botDst, 'utf8') !== fs.readFileSyn
 const outDir = path.join(HERE, 'out'); fs.mkdirSync(outDir, { recursive: true });
 const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 const dist = path.join(outDir, 'dist_' + path.basename(REPO));
-if (!NOBUILD) {
-  console.log(`빌드: ${REPO} → ${dist}`);
-  const wp = path.join(REPO, 'node_modules', 'webpack', 'bin', 'webpack.js');   // npx 대신 직접 실행(셸 불필요, Windows 경고 없음)
-  const b = spawnSync(process.execPath, [wp, '--config', 'webpack.prod.js', '--output-path', dist], { cwd: REPO, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-  if (b.status !== 0) { console.error(b.stdout, b.stderr); die('webpack 빌드 실패'); }
-  console.log('빌드 완료 ' + ((b.stdout.match(/compiled .*$/m) || [''])[0]));
-}
+console.log(`빌드: ${REPO} → ${dist}`);
+const wp = path.join(REPO, 'node_modules', 'webpack', 'bin', 'webpack.js');   // npx 대신 직접 실행(셸 불필요, Windows 경고 없음)
+const b = spawnSync(process.execPath, [wp, '--config', 'webpack.prod.js', '--output-path', dist], { cwd: REPO, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+if (b.status !== 0) { console.error(b.stdout, b.stderr); die('webpack 빌드 실패'); }
+console.log('빌드 완료 ' + ((b.stdout.match(/compiled .*$/m) || [''])[0]));
 if (!fs.existsSync(path.join(dist, 'ko', 'index.html'))) die('dist/ko/index.html 이 없음(빌드 산출물 구조가 바뀌었나?): ' + dist);
 const bots = spawnSync(process.execPath, ['-e', `const fs=require('fs');const s=fs.readdirSync(${JSON.stringify(dist)}).filter(f=>f.endsWith('.bundle.js'));let hit=[];for(const f of s){const t=fs.readFileSync(require('path').join(${JSON.stringify(dist)},f),'utf8');for(const n of [${JSON.stringify(BOT)},${JSON.stringify(OPP)}]) if(t.includes(n.replace(/\\.js$/,'')))hit.push(n);}console.log([...new Set(hit)].join(','))`], { encoding: 'utf8' }).stdout.trim();
 console.log(`번들에 포함된 봇 이름: ${bots || '(확인 불가)'}`);

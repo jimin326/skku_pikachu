@@ -1,7 +1,7 @@
 # Lion_Eating_Bank_v12_1 — v12 + 스킬 어댑터 v2
 
 `Lion_Eating_Bank_v12_1.js` = v12 + 스킬 어댑터 v2. **`SK.on=false`(기본)에서 v12 와 출력 동일**(§3). 랠리·서브 로직은 v12 그대로이므로 설계·근거는 `Lion_Eating_Bank_v12.md` 를 본다.
-생성: `node bot-dev/sk_v2_patch.mjs` (v12 → 앵커 7건 치환 → v12_1). 손으로 고치지 말고 생성기를 고친다. 왜 필요한지는 `bot-dev/DAYOF_PLAN_2026-09-05.md` §1·§2 P2.
+생성: `node bot-dev/sk_v2_patch.mjs` (v12 → 앵커 7건 치환 → v12_1). 손으로 고치지 말고 생성기를 고친다. 왜 필요한지는 `competition/DAYOF_PLAN_2026-09-05.md` §1·§2 P2.
 
 v12 어댑터의 구멍 4개를 메웠다: ① 썬더 시퀀스에도 스킬을 합성하던 것 ② 발동이 AC 정책 재동기화에 안 잡히던 것 ③ 만충 유지 시 매 hit 틱 재발동 ④ `guard` 가 지상 다이빙 `{x:±1, y:1, hit:1}` 을 점프+파워히트로 바꾸던 것.
 

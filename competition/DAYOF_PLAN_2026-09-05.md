@@ -91,9 +91,9 @@ var SK = {
 - `src/code-here/Lion_Eating_Bank_v12.md` §6 을 이 문서·`dayof/README.md`·v12_1 로 갱신. `bot-dev/README.md` 도구 표에 `eval_skill_real`·`skills/today`·`dayof/`·`sk_v2_*` 행 추가.
 
 ### P6. 팀 공유 (10분) — **완료 2026-09-05**
-- 팀 저장소 `jimin326/skku_pikachu` main: `competition/` 에 v12_1 .js/.md, 갱신된 이 문서, v12.md §6 갱신본, 폴더 README. 당일 도구는 저장소 루트 `bot-dev/`, 엔진은 `src/` 에 있다.
-- 이 저장소 하나로 전부 돈다. 팀원은 clone 후 `npm install` 한 번이면 되고, 다른 저장소를 받을 필요가 없다.
-- 검증: 빈 폴더에 clone → `npm install` → `node --no-warnings bot-dev/dayof/gates.mjs src/code-here/Lion_Eating_Bank_v12_1.js` 로 게이트 5개 전부 PASS 확인 (2026-09-05).
+- 팀 저장소 `jimin326/skku_pikachu`의 `feat/selfcontained-competition-repo` 브랜치: `competition/` 에 v12_1 .js/.md, 갱신된 이 문서, v12.md §6 갱신본, 폴더 README. 당일 도구는 저장소 루트 `bot-dev/`, 엔진은 `src/` 에 있다. main 병합 전에는 clone할 때 브랜치를 반드시 지정한다.
+- 이 저장소 하나로 전부 돈다. 팀원은 clone 후 `npm ci` 한 번이면 되고, 다른 저장소를 받을 필요가 없다.
+- 검증: 빈 폴더에 clone → `npm ci` → `node --no-warnings bot-dev/dayof/gates.mjs src/code-here/Lion_Eating_Bank_v12_1.js` 로 게이트 5개 전부 PASS 확인 (2026-09-05).
 
 ## 3. 당일 판단 트리 — 스킬 유형별 조치 (v12 줄 번호)
 
@@ -131,9 +131,8 @@ LLM 3회(회당 300자, 링크·코드 붙이기 불가):
 
 ## 4.1 당일 스텝 바이 스텝 — 처음 하는 사람 기준, 명령 그대로 복붙
 
-**전제.** 이 저장소(skku_pikachu)를 받은 폴더에서 **Git Bash**(VS Code 터미널의 bash 도 됨)를 열고, 모든 명령을 그 폴더 루트에서 친다. 처음이면 `npm install` 을 먼저 한 번 돌린다. 새 레포는 `C:SKKUpika
-ewrepo` 에 받는다고 가정한다(다른 곳이면 아래 `NEW=` 한 줄만 바꾼다).
-PowerShell 을 쓰면 `ENGINE_ROOT=$NEW node …` 꼴이 안 되므로 먼저 `$env:ENGINE_ROOT="C:\SKKU\pika\newrepo"` 를 치고 뒤의 `ENGINE_ROOT=$NEW ` 접두어를 뗀다. 나머지 명령은 같다.
+**전제.** 이 저장소(skku_pikachu)를 받은 폴더에서 **Git Bash**(VS Code 터미널의 bash 도 됨)를 열고, 모든 명령을 그 폴더 루트에서 친다. 처음이면 `npm ci`를 먼저 한 번 돌린다. 새 레포는 `C:\SKKU\pika\newrepo` 에 받는다고 가정한다(다른 곳이면 아래 `NEW=` 한 줄만 바꾼다).
+PowerShell 또는 CMD를 쓰면 환경변수·복사·해시 문법이 다르다. `bot-dev/dayof/SHELL_COMMANDS.md`의 해당 셸 블록을 그대로 사용한다.
 역할이 셋이면 A=규칙·시뮬(3·5·6단계), B=봇 파일(4·8단계), C=실기·제출(1·2·7·9·10단계). 혼자면 번호 순서대로.
 
 ### 0단계 — 전날 준비 확인 (5분)
@@ -142,7 +141,7 @@ cd <이 저장소를 받은 폴더>
 node --version                                                                   # v18 이상이면 됨
 mkdir -p bot-dev/dayof/out bot-dev/submitted
 node bot-dev/dayof/gates.mjs Lion_Eating_Bank_v12_1 --skip shadow,sk,rule        # 정적 검사만. PASS 두 줄 + "SK = {...}" 가 보이면 정상
-ls "/c/Program Files/Google/Chrome/Application/chrome.exe" "/c/Users/지민/AppData/Local/Temp/codex-playwright-core/node_modules/playwright-core" > /dev/null && echo chrome-ok
+node -e "require('playwright-core'); console.log('playwright-ok')"                # Chrome/Chromium은 하네스가 자동 탐색
 ```
 - 대회 사이트 제출 내역에 **v12 가 올라가 있는지** 확인한다. 없으면 `src/code-here/Lion_Eating_Bank_v12.js` 를 `사자먹는은행.js` 로 올린다. 이게 당일 후퇴판이다.
 - 종이나 메모장에 **5줄 시트**를 만들어 둔다: ① 새 필드 이름·위치·타입·범위 ② 충전 조건·만충치·리셋 ③ 발동 키·값·소모 시점(입력 즉시 / 접촉 시) ④ 효과·지속 ⑤ 규칙상 실점이 되는 행동.
@@ -276,7 +275,7 @@ node bot-dev/dayof/harness_dayof.mjs $NEW --opp Staff_v1.js            # 빌드(
 ENGINE_ROOT=$NEW node --no-warnings bot-dev/dayof/gates.mjs src/code-here/Lion_Eating_Bank_v12_1.js
 ```
 - `PASS` 5줄 + `게이트 전부 통과 → 제출 가능` 이면 10단계.
-- `shadow_diff … 불일치 N` 이 0 이 아닌데 `guard`·`resync` 를 켜지 않았다면 어댑터 밖을 잘못 건드린 것(8단계 한 줄 수정은 불일치를 내는 것이 정상 — 그 경우 정보용으로 보고 나머지 PASS 를 본다).
+- `shadow_diff … 불일치 N` 이 0 이 아니면 기본 게이트는 실패한다. 8단계의 의도한 한 줄 수정이나 `THUNDER_SERVE=0` 때문임을 `git diff -- src/code-here/Lion_Eating_Bank_v12_1.js`로 직접 확인한 경우에만 `--allow-shadow-diff "THUNDER_SERVE=0: thunder_check 불일치"`처럼 구체적 사유를 붙여 재실행한다. `guard`·`resync`도 자동 승인되지 않는다.
 - 하나라도 FAIL 이고 5분 안에 원인을 못 찾으면 **제출하지 않는다**. 사이트의 v12 가 그대로 쓰인다.
 
 ### 10단계 — 제출 (T+50, 3분, C)
@@ -287,15 +286,15 @@ cp src/code-here/Lion_Eating_Bank_v12_1.js "/c/SKKU/pika/사자먹는은행.js" 
 사이트에서 `사자먹는은행.js` 업로드 → 제출 내역에서 파일명·시각 확인 → **코드 프리즈**(이후 파일을 건드리지 않는다).
 
 ### 시간이 없을 때 최소 경로 (15분)
-3단계 diff_engine → 5단계 thunder_check(필요하면 14행 0) → 9단계 gates → 전부 PASS 면 제출, 아니면 v12 유지. 스킬 사용(`fire`)은 포기하고 `on: false` 그대로 둔다(이러면 v12 와 동작이 같으므로 굳이 올릴 이유도 없다 — 썬더를 껐을 때만 의미가 있다).
+3단계 diff_engine → 5단계 thunder_check(필요하면 14행 0) → 9단계 gates → 전부 PASS 면 제출, 아니면 v12 유지. `THUNDER_SERVE=0`으로 바꿨다면 diff를 직접 확인하고 gates에 `--allow-shadow-diff "THUNDER_SERVE=0: thunder_check 불일치"`를 붙인다. 스킬 사용(`fire`)은 포기하고 `on: false` 그대로 둔다(이러면 v12 와 동작이 같으므로 굳이 올릴 이유도 없다 — 썬더를 껐을 때만 의미가 있다).
 
 ### 자주 나는 문제
 - `ENGINE_ROOT 에서 resources/js/physics.js 를 찾을 수 없음` → `NEW` 가 새 레포 **루트**(또는 그 `src`)를 가리키는지, 경로에 한글·공백이 있으면 따옴표.
 - eval 의 `봇 예외 > 0` → 4단계에서 고친 줄의 문법(세미콜론·괄호). `node bot-dev/dayof/gates.mjs Lion_Eating_Bank_v12_1 --skip shadow,sk,rule` 로 로드 오류 메시지를 본다.
 - eval 의 `봇 발동 0`(fire=1 인데) → 만충 판정 실패: `gauge` 경로가 새 필드 로그와 다르거나 `full` 이 너무 큼. 6단계 `새 필드 […]` 출력과 대조.
 - Chrome `새 스냅샷 필드: 없음` 인데 문서엔 있다 → 필드가 활성 중에만 생기는지(`새 필드 … 첫 등장` 이 나중에 찍힘) 1세트 끝까지 본다. 끝까지 없으면 스냅샷이 아닌 다른 경로(예: `config`)다 → 3단계 §1 botContract diff 를 다시 읽는다.
-- PowerShell 에서 `ENGINE_ROOT=…` 가 명령으로 인식 안 됨 → `$env:ENGINE_ROOT="C:\SKKU\pika\newrepo"` 를 먼저 한 번 치고 접두어를 뗀다. `export SKILL_CFG=…` 도 `$env:SKILL_CFG='{…}'` 로.
-- 하네스 `playwright-core 를 못 찾음` → `NODE_PATH="/c/Users/지민/AppData/Local/Temp/codex-playwright-core/node_modules" node bot-dev/dayof/harness_dayof.mjs …` 처럼 앞에 붙인다. 다른 PC 면 그 PC 의 playwright-core 위치.
+- PowerShell/CMD에서 `ENGINE_ROOT=…`가 명령으로 인식 안 됨 → `bot-dev/dayof/SHELL_COMMANDS.md`의 해당 셸 환경변수 블록을 사용한다.
+- 하네스 `playwright-core 를 못 찾음` → 이 저장소 루트에서 `npm ci`를 다시 실행한다. Chrome 자동 탐색만 실패하면 셸별로 `CHROME_PATH`를 지정한다(`bot-dev/dayof/SHELL_COMMANDS.md`).
 
 ## 5. 제출 게이트 (전부 통과해야 새 파일을 올린다)
 

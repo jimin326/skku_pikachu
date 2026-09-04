@@ -6,14 +6,18 @@
 
 ## 처음 받았을 때 (2분)
 
-```
-git clone https://github.com/jimin326/skku_pikachu.git
+아래는 Git Bash 기준이며 가장 권장한다.
+
+```bash
+git clone --branch feat/selfcontained-competition-repo --single-branch https://github.com/jimin326/skku_pikachu.git
 cd skku_pikachu
-npm install
+npm ci
 node --no-warnings bot-dev/dayof/gates.mjs src/code-here/Lion_Eating_Bank_v12_1.js
 ```
 
-마지막 줄이 `게이트 전부 통과 → 제출 가능` 이면 준비 끝이다. Node 18 이상이 필요하다.
+PowerShell에서는 `npm.cmd ci`, CMD에서도 `npm.cmd ci`를 사용한다. 세 셸의 전체 복붙 명령과 환경변수 문법은 [`bot-dev/dayof/SHELL_COMMANDS.md`](bot-dev/dayof/SHELL_COMMANDS.md)에 있다.
+
+마지막 줄이 `게이트 전부 통과 → 제출 가능` 이면 준비 끝이다. Node 18 이상과 Chrome/Chromium이 필요하다.
 
 ## 폴더
 

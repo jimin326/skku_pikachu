@@ -128,5 +128,5 @@ Lion 계열 썬더는 킬 틱 스냅샷에서 내가 블록 자리(네트 ≤72)
 | Chrome 실기 (스크래치 dist, fast, timing 훅) | v12(L) vs v10(R) **10-6** (344초), v10(L) vs v12(R) **1-10** (447초) — v11_1 실기와 같은 점수. 양쪽 `봇 코드 로드됨`, 경기 종료 정상, PAGEERROR·무효응답·타임아웃·재시작 0. 워커 왕복 v12: p50 2.1 / p99 4.6 / max 14.8ms. `새 스냅샷 필드: 없음`·썬더 발동·이탈 로그 정상. 결과 `bot-dev/harness/chrome_v12_2026-09-05.json` |
 
 ## §6 당일 절차
-**(2026-09-05 갱신)** 당일 절차는 `bot-dev/DAYOF_PLAN_2026-09-05.md`(§3 스킬 유형별 판단 트리 — v12 줄 번호, §4 60분 시간표, §5 제출 게이트, §6 중단 조건)와 `bot-dev/dayof/README.md`(명령 순서)를 따른다. 제출 후보는 스킬 어댑터 v2 를 얹은 `Lion_Eating_Bank_v12_1.js`(노브 채우기: `Lion_Eating_Bank_v12_1.md` §4)이고, v12 는 사전 제출해 둔 후퇴판이다.
+**(2026-09-05 갱신)** 당일 절차는 `competition/DAYOF_PLAN_2026-09-05.md`(§3 스킬 유형별 판단 트리 — v12 줄 번호, §4 60분 시간표, §5 제출 게이트, §6 중단 조건)와 `bot-dev/dayof/README.md`(명령 순서)를 따른다. 제출 후보는 스킬 어댑터 v2 를 얹은 `Lion_Eating_Bank_v12_1.js`(노브 채우기: `Lion_Eating_Bank_v12_1.md` §4)이고, v12 는 사전 제출해 둔 후퇴판이다.
 `bot-dev/V11_VERIFY_REPORT_2026-09-05.md` 의 B4(실패 모드 a~e 손 절차)·B6(코드 지도)는 손 수정의 참고로 남는다. 줄 번호만 v12 기준으로 다시 찾는다(함수 이름은 같다: `applySkill`, `stepBall`, `defShotTrajs`, `KILL_GATE`, `DEF_CFG`, `THUNDER_SERVE`). 업로드 파일명 `사자먹는은행.js`.

@@ -24,6 +24,7 @@
     "eslint": "^8.17.0",
     "eslint-plugin-prettier": "^4.0.0",
     "html-webpack-plugin": "^5.5.0",
+    "playwright-core": "1.62.1",
     "prettier": "^2.6.2",
     "webpack": "^5.76.0",
     "webpack-cli": "^4.9.2",
