@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="420" viewBox="0 0 960 420" font-family="Apple SD Gothic Neo, Malgun Gothic, Noto Sans KR, Segoe UI, sans-serif" font-size="15">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#555555"/>
+    </marker>
+  </defs>
+  <rect width="960" height="420" fill="#ffffff"/>
+
+  <!-- 게임 엔진 -->
+  <rect x="15" y="140" width="175" height="140" rx="10" fill="#eef3ff" stroke="#3b5bdb" stroke-width="2"/>
+  <text x="102" y="172" text-anchor="middle" font-weight="bold" font-size="17">게임 엔진</text>
+  <text x="102" y="196" text-anchor="middle" font-size="14">피카츄 배구 (25fps)</text>
+  <text x="102" y="218" text-anchor="middle" font-size="13">공·선수 물리, 점수, 스킬</text>
+  <text x="102" y="246" text-anchor="middle" fill="#666666" font-size="11">주최 측 저장소에 있음</text>
+  <text x="102" y="262" text-anchor="middle" fill="#666666" font-size="11">(이 저장소엔 없음)</text>
+
+  <!-- 엔진 → 봇 -->
+  <path d="M 190 185 L 330 185" stroke="#555555" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="260" y="171" text-anchor="middle" font-size="12">스냅샷 (0.12초마다)</text>
+  <text x="260" y="201" text-anchor="middle" font-size="11" fill="#666666">공·선수 위치·속도, 점수</text>
+  <!-- 봇 → 엔진 -->
+  <path d="M 330 240 L 190 240" stroke="#555555" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="260" y="228" text-anchor="middle" font-size="12">행동 {x, y, hit}</text>
+  <text x="260" y="257" text-anchor="middle" font-size="11" fill="#666666">이동 · 점프 · 강타</text>
+
+  <!-- 우리 봇 -->
+  <rect x="330" y="60" width="380" height="300" rx="10" fill="#fff7e6" stroke="#e8590c" stroke-width="2"/>
+  <text x="520" y="90" text-anchor="middle" font-weight="bold" font-size="17">우리 봇 decide()</text>
+
+  <rect x="350" y="105" width="340" height="60" rx="8" fill="#ffffff" stroke="#e8590c"/>
+  <text x="365" y="128" font-weight="bold">① 서브 한 방 (썬더 서브)</text>
+  <text x="365" y="150" font-size="13">미리 찾아 둔 입력 순서 → 3터치 안에 득점</text>
+
+  <rect x="350" y="175" width="340" height="80" rx="8" fill="#ffffff" stroke="#e8590c"/>
+  <text x="365" y="198" font-weight="bold">② 랠리: 미리 계산하고 확실할 때만 강타</text>
+  <text x="365" y="220" font-size="13">공과 선수를 수십 프레임 앞까지 시뮬레이션</text>
+  <text x="365" y="240" font-size="13">상대가 못 받는 공만 강타, 아니면 안전하게 넘김</text>
+
+  <rect x="350" y="265" width="340" height="80" rx="8" fill="#ffffff" stroke="#e8590c"/>
+  <text x="365" y="288" font-weight="bold">③ 대회 당일 공개된 스킬 대응 (발톱)</text>
+  <text x="365" y="310" font-size="13">상대 발톱 예고가 뜨면 옆으로 피하기</text>
+  <text x="365" y="330" font-size="13">게이지가 차면 상대가 서 있어야 할 자리에 발톱</text>
+
+  <!-- 봇 → 검증 -->
+  <path d="M 710 210 L 740 210" stroke="#555555" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- 검증 -->
+  <rect x="740" y="60" width="200" height="300" rx="10" fill="#f1f8e9" stroke="#2f9e44" stroke-width="2"/>
+  <text x="840" y="90" text-anchor="middle" font-weight="bold" font-size="17">검증</text>
+  <text x="755" y="125" font-weight="bold" font-size="14">오프라인 시뮬레이터</text>
+  <text x="755" y="145" font-size="12">수 초에 수십 경기 재현</text>
+  <text x="755" y="185" font-weight="bold" font-size="14">제출 게이트</text>
+  <text x="755" y="205" font-size="12">자동 검사 5종</text>
+  <text x="755" y="223" font-size="12">FAIL 하나면 제출 안 함</text>
+  <text x="755" y="263" font-weight="bold" font-size="14">실제 브라우저 경기</text>
+  <text x="755" y="283" font-size="12">헤드리스 Chrome에서</text>
+  <text x="755" y="301" font-size="12">진짜 게임으로 좌우 대결</text>
+
+  <text x="480" y="395" text-anchor="middle" font-size="13" fill="#666666">매 3프레임(0.12초)마다 스냅샷을 받아 행동을 돌려준다. 응답이 늦으면 다음 프레임에 적용된다.</text>
+</svg>
