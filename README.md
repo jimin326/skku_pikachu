@@ -85,7 +85,7 @@ node tools/dayof/harness_dayof.mjs ../engine --bot Lion_Eating_Bank_v15.js --opp
 bot/                 봇들. submitted/ 에 실제 제출본, Lion_Eating_Bank_v12~v15 가 최종 라인(설계 문서 .md 포함),
                      검증 상대로 쓴 봇 4개. archive/ 에 초기 버전 v1~v11
 tools/               시뮬레이터, 검사 도구, 브라우저 경기 하네스, 스킬 재현
-docs/                대회 규칙 정리, 당일 계획, 스킬 예측, 검증 보고서, 외부 리뷰, 결과 증빙
+docs/                당일 계획, 스킬 예측, 검증 보고서, 외부 리뷰, 결과 증빙
 ```
 
 브랜치는 `main`(이 구조)과 팀원 브랜치 `kyubeom`·`keunhyung`·`robust-rl-colab`(각자의 실험) 이 있고, 개발 과정의 중간 지점은 태그(`v12-baseline`, `v13-physics-fix`, `day-of-2026-09-05`, `submitted-2026-09-05`, `archive/*`)로 남겼습니다.
