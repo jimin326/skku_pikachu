@@ -55,10 +55,11 @@ for (const botPath of bots) {
   // 첫 호출(콜드) 시간
   const durs = []; let errors = 0, invalid = 0, calls = 0; const badSamples = [];
   const wrapped = (s) => {
-    const t = performance.now(); let a = null; calls++;
-    try { a = loaded.decide(s); } catch (e) { errors++; if (badSamples.length < 3) badSamples.push('throw: ' + (e && e.message)); }
+    const t = performance.now(); let a = null, threw = false; calls++;
+    try { a = loaded.decide(s); } catch (e) { threw = true; errors++; if (badSamples.length < 3) badSamples.push('throw: ' + (e && e.message)); }
     finally { durs.push(performance.now() - t); }
-    if (a !== null && !valid(a)) { invalid++; if (badSamples.length < 3) badSamples.push('invalid: ' + JSON.stringify(a)); }
+    // null 도 계약 위반: 엔진 botInput.js 는 null 을 malformed 와 똑같이 처리(중립 입력 대체 + 경고). throw 는 위에서 셌으므로 중복 계산하지 않는다
+    if (!threw && !valid(a)) { invalid++; if (badSamples.length < 3) badSamples.push('invalid: ' + String(JSON.stringify(a))); }
     return a;
   };
   let gw = 0, gl = 0;
@@ -87,6 +88,9 @@ for (const botPath of bots) {
   if (over120 || errors || invalid) failed = true;
   origLog(`  decide: calls ${calls} avg ${mean.toFixed(3)} p50 ${p(0.5).toFixed(2)} p99 ${p(0.99).toFixed(2)} max ${durs[durs.length - 1].toFixed(2)} ms (first ${first.toFixed(1)}, max after 10 calls ${warmMax.toFixed(1)}) | >120ms ${over120} | >360ms ${over360} ${over360 ? 'FAIL' : over120 ? 'WARN' : 'OK'}`);
   origLog(`  returns: throws ${errors} invalid ${invalid} ${errors + invalid ? 'FAIL' : 'OK'} | games ${gw}-${gl} vs [${OPPS.join(',')}]`);
+  // 오케스트레이터가 삼킨 내부 예외(decide.__state.errors: thunder/ac/core/skill/orch). 폴백으로 경기는 이어지지만 당일엔 새 필드 접근 오류의 신호이므로 0 이어야 한다
+  const ie = loaded.decide.__state && loaded.decide.__state.errors;
+  if (ie) { const n = Object.keys(ie).reduce((x, k) => x + (ie[k] | 0), 0); if (n) failed = true; origLog(`  internal errors: ${JSON.stringify(ie)} ${n ? 'FAIL' : 'OK'}`); }
   badSamples.forEach((b) => origLog('    ' + b));
 }
 origLog(failed ? '\nRULE_CHECK FAIL' : '\nRULE_CHECK PASS');

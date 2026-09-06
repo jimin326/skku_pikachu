@@ -5,6 +5,10 @@
 | `Lion_Eating_Bank_v12_1.js` | **제출 후보.** v12 + 스킬 어댑터 v2. `SK.on=false`(기본)면 v12 와 출력 동일. 당일 33~40행 `SK` 노브만 채운다 |
 | `Lion_Eating_Bank_v12_1.md` | 어댑터 노브 표(§1), 새 필드 로그(§2), 검증 수치(§3), **당일 채우는 순서(§4)** |
 | `Lion_Eating_Bank_v12.js` / `.md` | **후퇴판.** v11_1 클린코드판(출력 동일). 사이트에 미리 올려 두는 베이스라인. 설계·근거·벤치는 이 md |
+| `Lion_Eating_Bank_v15.js` / `.md` | **제출 후보(최소 수정판).** v13 원본 + 발톱(claw) 회피·낙하점 시전만(어댑터 v2 없음, diff 85줄). 게이트 `--base Lion_Eating_Bank_v13`. 검증: `Lion_Eating_Bank_v15.md` |
+| `Lion_Eating_Bank_v14.js` / `.md` | 같은 발톱 정책을 v13_1(어댑터 v2) 위에 얹은 판. 공개 규칙 정리·노브 표는 `Lion_Eating_Bank_v14.md`. 시뮬 훅 `bot-dev/skills/claw_real.mjs` |
+| `Lion_Eating_Bank_v13_1.js` | v13 + 스킬 어댑터 v2(발톱 정책 없음 = v14 에서 `dodge: 0, claw: 0`). 게이트 `--base Lion_Eating_Bank_v13`. 검증 수치: `Lion_Eating_Bank_v13.md` |
+| `Lion_Eating_Bank_v13.js` / `.md` | v12 + 플레이어 물리 예측 수정 3건(이륙 vy 추정·y=244 공중 프레임·누운 상대 몸 접촉). v13_1 의 shadow_diff 기준 |
 | `DAYOF_PLAN_2026-09-05.md` | 당일 계획: 두 예측 문서 대조(§1), 사전 작업 P1~P6 결과(§2), **스킬 유형별 판단 트리(§3, v12 줄 번호)**, 60분 시간표(§4), **처음 하는 사람용 스텝 바이 스텝 — 명령 복붙(§4.1)**, 제출 게이트(§5), 중단 조건(§6) |
 | 당일 도구 | 저장소 루트의 `bot-dev/` 에 있다(새 레포 diff·썬더 판정·제출 게이트·Chrome 실기·스킬 재현). 명령 순서는 `bot-dev/dayof/README.md` |
 

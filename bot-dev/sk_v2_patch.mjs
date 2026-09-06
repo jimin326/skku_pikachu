@@ -1,5 +1,5 @@
-/* sk_v2_patch.mjs — 스킬 어댑터 v2 를 v12 에 적용해 v12_1 을 만든다 (competition/DAYOF_PLAN_2026-09-05.md §2 P2).
- * 사용: node bot-dev/sk_v2_patch.mjs [<in.js>] [<out.js>] [--check]
+/* sk_v2_patch.mjs — 스킬 어댑터 v2 를 v12 에 적용해 v12_1 을 만든다 (competition/DAYOF_PLAN_2026-09-05.md §2 P2). v13 → v13_1 처럼 v12 이후 코어에도 같은 패치를 붙인다.
+ * 사용: node bot-dev/sk_v2_patch.mjs [<in.js>] [<out.js>] [--check]      예: node bot-dev/sk_v2_patch.mjs src/code-here/Lion_Eating_Bank_v13.js src/code-here/Lion_Eating_Bank_v13_1.js
  *   기본 in  = src/code-here/Lion_Eating_Bank_v12.js
  *   기본 out = src/code-here/Lion_Eating_Bank_v12_1.js
  *   --check: 앵커 존재 여부만 출력. 앵커가 정확히 1개씩이 아니면 아무것도 쓰지 않고 코드 1.
@@ -14,7 +14,7 @@
  *   A4 오케스트레이터        — applySkill 에 owner 전달, 발동 감지(fired), 발동 로그 ≤5줄, resync 노브
  *   A5 M.lastOwner 기록      — 검사 도구용
  *   A6 검사 도구 노출        — decide.__skState */
-import fs from 'node:fs';
+import fs from 'node:fs'; import path from 'node:path';
 const args = process.argv.slice(2);
 const pos = args.filter((a) => !a.startsWith('--'));
 const inF = pos[0] || 'src/code-here/Lion_Eating_Bank_v12.js';
@@ -22,11 +22,16 @@ const outF = pos[1] || 'src/code-here/Lion_Eating_Bank_v12_1.js';
 const check = args.includes('--check');
 /* 앵커 문자열이 LF 기준이라 CRLF 로 체크아웃된 파일에서 조용히 실패한다. 읽을 때 정규화한다. */
 let s = fs.readFileSync(inF, 'utf8').replace(/\r\n/g, '\n');
+/* A0 는 입력·출력 파일명의 버전에서 만든다(v12 → v12_1 은 종전 결과와 바이트 동일). 앵커 = 입력 파일 머리말 2줄(파일명 — 설명 / 문서 참조 줄) */
+const verOf = (f) => (path.basename(f).match(/_v(\d+(?:_\d+)*)\.js$/) || [])[1];
+const inVer = verOf(inF), outVer = verOf(outF);
+if (!inVer || !outVer) { console.error('파일명이 Lion_Eating_Bank_v<n>.js 꼴이어야 한다:', inF, outF); process.exit(1); }
+if (/_1$/.test(inVer)) { console.error('입력이 이미 어댑터판(v*_1) 이다. 코어 파일(v12, v13 …)을 넣을 것:', inF); process.exit(1); }
+const headOld = (s.match(/^\/\* Lion_Eating_Bank_v[\d_]+\.js — [^\n]*\n \*   [^\n]*/m) || [])[0] || '(머리말 앵커 없음)';
+const headNew = `/* Lion_Eating_Bank_v${outVer}.js — 사자먹는은행 제출 봇. v${inVer} + 스킬 어댑터 v2 (SK.on=false 면 v${inVer} 와 출력 동일. bot-dev/sk_v2_patch.mjs 가 v${inVer} 에서 생성, 손으로 고치지 말 것).\n *   어댑터 v2 노브·검증: src/code-here/Lion_Eating_Bank_v12_1.md. 그 외 설계·근거·벤치·당일 절차: Lion_Eating_Bank_v${inVer}.md (§번호는 이 파일의 주석과 대응)`;
 
 const P = [
-  { name: 'A0 머리말',
-    old: "/* Lion_Eating_Bank_v12.js — 사자먹는은행 제출 봇. v11_1 의 클린코드판(동작·출력 동일, bot-dev/v12_clean.mjs 가 v11_1 에서 생성).\n *   설계·근거·벤치·당일 절차: src/code-here/Lion_Eating_Bank_v12.md (§번호는 이 파일의 주석과 대응)",
-    neu: "/* Lion_Eating_Bank_v12_1.js — 사자먹는은행 제출 봇. v12 + 스킬 어댑터 v2 (SK.on=false 면 v12 와 출력 동일. bot-dev/sk_v2_patch.mjs 가 v12 에서 생성, 손으로 고치지 말 것).\n *   어댑터 v2 노브·검증: src/code-here/Lion_Eating_Bank_v12_1.md. 그 외 설계·근거·벤치·당일 절차: Lion_Eating_Bank_v12.md (§번호는 이 파일의 주석과 대응)" },
+  { name: 'A0 머리말', old: headOld, neu: headNew },
 
   { name: 'A1 SK 블록 v2',
     old: "/* 스킬 어댑터(당일용). SK.on=false 면 아무 것도 안 함. 최종 출력 직전에 한 번 적용(§3). md §0.2 */\n" +
