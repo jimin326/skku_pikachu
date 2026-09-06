@@ -1,0 +1,12 @@
+# docs/
+
+| 파일 | 무엇 |
+|---|---|
+| `COMPETITION_GUIDE.md` | 대회 규칙·Q&A 정리본(팀 작성) |
+| `SKILL_PREDICTION.md` | 스킬 공개 전, 공개 코드 흔적으로 예측한 스킬(발톱·게이지). 실제와 대조하는 재미가 있다 |
+| `DAYOF_PLAN_2026-09-05.md` | 대회 당일 60분 계획: 판단 트리, 시간표, 제출 게이트, 중단 조건 |
+| `V11_VERIFY_REPORT_2026-09-05.md`, `Lion_Eating_Bank_v11_REVIEW.md` | v11 검증 보고서와 팀 리뷰 |
+| `REVIEW_external_2026-09-05.md` | 외부 리뷰(v12_1 최종 제출 리뷰). F1~F4 가 전부 사실로 확인돼 v13 과 도구 수정으로 이어짐. 문서 안 경로는 리뷰어 환경 기준 |
+| `results/` | 상장·순위표 등 결과 증빙(추가 예정) |
+
+이 폴더의 문서는 작성 당시 구조를 기준으로 쓰였다. 경로 대응: `bot-dev/` → `tools/`, `src/code-here/` → `bot/`, `competition/` → `bot/`.

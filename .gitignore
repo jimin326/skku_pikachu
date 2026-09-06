@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.DS_Store
+Thumbs.db
+*.log
+
+# 도구 산출물(재실행으로 재생성)
+tools/dayof/out/
+tools/harness/results_*.json
+tools/submitted/

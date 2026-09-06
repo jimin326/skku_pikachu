@@ -1,9 +1,0 @@
-{
-  "_comment": "당일 실기 설정 템플릿. PROVIDED_v1.js 를 제공 스킬 봇 파일명(<팀>_v<n>.js 규약, 새 레포 src/code-here 에 있어야 함)으로 바꾼다. 보통은 bot-dev/dayof/harness_dayof.mjs 가 이 내용을 만들어 준다. 수동 실행: GAME_URL=http://127.0.0.1:8765/ko/index.html NODE_PATH=<playwright-core node_modules> CHROME_PATH=<chrome.exe> OUT=<결과.json> node bot-dev/harness/run.mjs \"$(cat bot-dev/harness/dayof.json)\"",
-  "parallel": 2,
-  "maxMinutes": 14,
-  "matches": [
-    { "label": "v12_1L-vs-PROVIDEDR", "left": { "mode": "bot", "bot": "Lion_Eating_Bank_v12_1.js" }, "right": { "mode": "bot", "bot": "PROVIDED_v1.js" }, "speed": "fast", "timing": true },
-    { "label": "PROVIDEDL-vs-v12_1R", "left": { "mode": "bot", "bot": "PROVIDED_v1.js" }, "right": { "mode": "bot", "bot": "Lion_Eating_Bank_v12_1.js" }, "speed": "fast", "timing": true }
-  ]
-}

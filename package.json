@@ -1,0 +1,15 @@
+{
+  "name": "skku-hyu-cse-ai-volleyball-bot",
+  "version": "1.0.0",
+  "description": "2026 SKKU x HYU CSE 교류전 AI 부문 우승 봇(사자먹는은행)과 검증 도구. 엔진은 포함하지 않으며 ENGINE_ROOT 로 주최 측 저장소를 가리킨다.",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "gates": "node --no-warnings tools/dayof/gates.mjs bot/Lion_Eating_Bank_v15.js --base Lion_Eating_Bank_v13",
+    "thunder": "node --no-warnings tools/dayof/thunder_check.mjs $ENGINE_ROOT Lion_Eating_Bank_v15",
+    "claw": "node --no-warnings tools/eval_skill_real.mjs ./skills/claw_real.mjs Lion_Eating_Bank_v15 skill-example_v1 3"
+  },
+  "devDependencies": {
+    "playwright-core": "1.62.1"
+  }
+}
