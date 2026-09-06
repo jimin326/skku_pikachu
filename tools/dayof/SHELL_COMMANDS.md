@@ -1,36 +1,44 @@
 # 셸별 명령 — Git Bash / PowerShell / CMD
 
-당일 본문(`tools/dayof/README.md`, `competition/DAYOF_PLAN_2026-09-05.md`)은 **Git Bash 기준**이다. Windows에서는 Git Bash가 가장 간단하다. PowerShell과 CMD를 써도 되지만 환경변수·복사·해시 문법이 다르므로 아래 형식을 사용한다.
+당일 본문(`tools/dayof/README.md`, `docs/DAYOF_PLAN_2026-09-05.md`)은 **Git Bash 기준**이다. Windows에서는 Git Bash가 가장 간단하다. PowerShell과 CMD를 써도 되지만 환경변수·복사·해시 문법이 다르므로 아래 형식을 사용한다.
 
-## 1. 팀 저장소 처음 받기
+## 1. 처음 받기 (이 저장소 + 주최 측 엔진)
+
+엔진은 이 저장소에 없다. 주최 측 공개 저장소를 옆 폴더에 받아 `ENGINE_ROOT` 로 가리킨다.
 
 ### Git Bash (권장)
 
 ```bash
-git clone --branch feat/selfcontained-competition-repo --single-branch https://github.com/jimin326/skku_pikachu.git
-cd skku_pikachu
-npm ci
-node --no-warnings tools/dayof/gates.mjs bot/Lion_Eating_Bank_v12_1.js
+git clone https://github.com/jimin326/skku_hyu_cse_ai.git
+git clone https://github.com/SKKU-x-HYU-SW-Competition/leonyi-volleyball-skill.git engine
+(cd engine && npm install)
+cd skku_hyu_cse_ai && npm install
+export ENGINE_ROOT=../engine
+node --no-warnings tools/dayof/gates.mjs bot/Lion_Eating_Bank_v15.js --base Lion_Eating_Bank_v13
 ```
 
 ### PowerShell
 
 ```powershell
-git clone --branch feat/selfcontained-competition-repo --single-branch https://github.com/jimin326/skku_pikachu.git
-Set-Location .\skku_pikachu
-npm.cmd ci
-node.exe --no-warnings tools/dayof/gates.mjs bot/Lion_Eating_Bank_v12_1.js
+git clone https://github.com/jimin326/skku_hyu_cse_ai.git
+git clone https://github.com/SKKU-x-HYU-SW-Competition/leonyi-volleyball-skill.git engine
+Set-Location .\engine; npm.cmd install; Set-Location ..
+Set-Location .\skku_hyu_cse_ai; npm.cmd install
+$env:ENGINE_ROOT = '..\engine'
+node.exe --no-warnings tools/dayof/gates.mjs bot/Lion_Eating_Bank_v15.js --base Lion_Eating_Bank_v13
 ```
 
-PowerShell 실행 정책이 `npm.ps1`을 막을 수 있으므로 `npm` 대신 `npm.cmd`를 사용한다.
+PowerShell 실행 정책이 `npm.ps1` 을 막을 수 있으므로 `npm` 대신 `npm.cmd` 를 사용한다.
 
 ### CMD
 
 ```bat
-git clone --branch feat/selfcontained-competition-repo --single-branch https://github.com/jimin326/skku_pikachu.git
-cd /d skku_pikachu
-npm.cmd ci
-node --no-warnings tools/dayof/gates.mjs bot/Lion_Eating_Bank_v12_1.js
+git clone https://github.com/jimin326/skku_hyu_cse_ai.git
+git clone https://github.com/SKKU-x-HYU-SW-Competition/leonyi-volleyball-skill.git engine
+cd /d engine && npm.cmd install && cd ..
+cd /d skku_hyu_cse_ai && npm.cmd install
+set "ENGINE_ROOT=..\engine"
+node --no-warnings tools/dayof/gates.mjs bot/Lion_Eating_Bank_v15.js --base Lion_Eating_Bank_v13
 ```
 
 ## 2. 당일 새 레포와 ENGINE_ROOT
