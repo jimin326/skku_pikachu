@@ -9,7 +9,7 @@
 | 항목 | 내용 |
 |---|---|
 | 대회 | 2026 성균관대학교 × 한양대학교 CSE 교류전 AI 부문 (2026-09-05) |
-| 결과 | **우승** (상금·학생회 수여) |
+| 결과 | **우승** |
 | 제출본 | [`bot/submitted/사자먹는은행_v1.js`](bot/submitted/사자먹는은행_v1.js) — 유래·검증은 [`bot/submitted/SUBMISSION.md`](bot/submitted/SUBMISSION.md) |
 | 팀원 | [@jimin326](https://github.com/jimin326) (최종 봇 라인 `Lion_Eating_Bank`·시뮬레이터·검증 도구), [@keunhyung](https://github.com/keunhyung) (RL/BC 실험 `robust-rl-colab`, 수비 봇 v6), [@kimmykimmim](https://github.com/kimmykimmim) (`AdaptiveCounter` 시리즈, 상대 적응 수비). 역할은 브랜치·커밋 기준 |
 
