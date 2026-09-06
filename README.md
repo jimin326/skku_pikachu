@@ -92,7 +92,7 @@ docs/                대회 규칙 정리, 당일 계획, 스킬 예측, 검증 
 
 ## 팀
 
-[@jimin326](https://github.com/jimin326) — 최종 봇(`Lion_Eating_Bank` 라인), 시뮬레이터와 검증 도구, 당일 스킬 대응. [@keunhyung](https://github.com/keunhyung) — 강화학습·모방학습 실험(`robust-rl-colab`), 수비 봇. [@kimmykimmim](https://github.com/kimmykimmim) — 상대에 적응하는 수비 봇 `AdaptiveCounter` 시리즈. 역할은 브랜치와 커밋 기준입니다.
+[@jimin326](https://github.com/jimin326) — 최종 봇(`Lion_Eating_Bank` 라인), 서브 한 방(썬더 서브) 발견과 개발, 시뮬레이터와 검증 도구, 당일 스킬 대응. [@keunhyung](https://github.com/keunhyung) — 강화학습·모방학습 실험(`robust-rl-colab`), 수비 봇. [@kimmykimmim](https://github.com/kimmykimmim) — 상대에 적응하는 수비 봇 `AdaptiveCounter` 시리즈. 역할은 브랜치와 커밋 기준입니다.
 
 ## 배운 점
 
